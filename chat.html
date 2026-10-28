@@ -27,6 +27,7 @@
   button { border: 0; border-radius: 8px; padding: 6px 12px; background: #3a3d47; color: var(--text); font: inherit; cursor: pointer }
   button:disabled { opacity: 0.5; cursor: default }
   button.primary { background: var(--accent); color: #fff }
+  #mic.on { background: #c0392b }
   button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
 </style>
 </head>
@@ -36,6 +37,7 @@
 <div id="status"></div>
 <footer>
   <textarea id="input" placeholder="Ask anything or give me a task…" aria-label="Message"></textarea>
+  <button id="mic" title="Speak (Ctrl+Alt+Space)" aria-label="Speak">🎤</button>
   <button id="send" class="primary">Send</button>
 </footer>
 <script>
@@ -71,15 +73,81 @@
   function send() {
     const text = $('input').value.trim();
     if (!text || busy) return;
+    finish(false);
+    speechSynthesis.cancel();
     add('msg me', text);
     $('input').value = '';
     bridge.send('ask', text);
   }
   $('send').onclick = () => (busy ? bridge.send('stop') : send());
   $('input').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
+  // voice in: record 16 kHz mono samples, stop after ~1.5 s of quiet once speech was heard (or on a mic click),
+  // then main transcribes them with local Whisper and the text is sent like a typed message
+  let rec = null;
+  const listening = () => !!rec;
+  async function listen(on) {
+    if (!on) return finish(false);
+    if (rec || busy) return;
+    speechSynthesis.cancel();
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    } catch (e) {
+      return add('msg bot error', `I can't use the microphone: ${e.message}. Check Windows Settings > Privacy > Microphone.`);
+    }
+    const ac = new AudioContext({ sampleRate: 16000 });
+    // ponytail: ScriptProcessor is deprecated but needs no extra file; move to an AudioWorklet if Chromium drops it
+    const node = ac.createScriptProcessor(4096, 1, 1);
+    const chunks = [];
+    let heard = false, quiet = 0, total = 0;
+    node.onaudioprocess = (e) => {
+      const x = new Float32Array(e.inputBuffer.getChannelData(0));
+      chunks.push(x);
+      total += x.length;
+      const rms = Math.sqrt(x.reduce((sum, v) => sum + v * v, 0) / x.length);
+      if (rms > 0.015) { heard = true; quiet = 0; } else quiet += x.length;
+      if ((heard && quiet > 16000 * 1.5) || total > 16000 * 30) finish(true);
+    };
+    ac.createMediaStreamSource(stream).connect(node);
+    node.connect(ac.destination); // a ScriptProcessor only runs while connected
+    rec = { ac, stream, chunks, heard: () => heard };
+    $('mic').classList.add('on');
+    $('status').textContent = 'Listening… I send when you pause';
+  }
+  function finish(keep) {
+    if (!rec) return;
+    const { ac, stream, chunks, heard } = rec;
+    rec = null;
+    stream.getTracks().forEach((t) => t.stop());
+    ac.close();
+    $('mic').classList.remove('on');
+    $('status').textContent = '';
+    if (!keep || !heard()) return;
+    const all = new Float32Array(chunks.reduce((n, c) => n + c.length, 0));
+    let at = 0;
+    for (const c of chunks) { all.set(c, at); at += c.length; }
+    $('status').textContent = 'Transcribing…';
+    bridge.send('transcribe', all.buffer);
+  }
+  $('mic').onclick = () => (rec ? finish(true) : listen(true));
+
+  // voice out: read his replies aloud with a Windows voice in the reply's language
+  let speak = new URLSearchParams(location.search).get('speak') === '1';
+  function say(text) {
+    if (!speak) return;
+    const u = new SpeechSynthesisUtterance(text.replace(/[`*_#>]/g, ''));
+    u.lang = /[а-яё]/i.test(text) ? 'ru-RU' : 'en-US';
+    u.voice = speechSynthesis.getVoices().find((v) => v.lang.startsWith(u.lang.slice(0, 2))) ?? null;
+    speechSynthesis.speak(u);
+  }
+
   $('close').onclick = () => bridge.send('hide-chat');
   $('new').onclick = () => bridge.send('new-chat');
-  addEventListener('keydown', (e) => { if (e.key === 'Escape') bridge.send('hide-chat'); });
+  addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (listening()) finish(false);
+    else bridge.send('hide-chat');
+  });
 
   // Claude needs approval for actions the current permission mode doesn't allow
   function askCard(items) {
@@ -98,16 +166,23 @@
   }
 
   bridge.on('claude', (m) => {
-    if (m.type === 'text') add('msg bot', m.text);
+    if (m.type === 'text') { add('msg bot', m.text); say(m.text); }
     if (m.type === 'tool') add('tool', '▸ ' + m.text);
     if (m.type === 'error') add('msg bot error', m.text);
     if (m.type === 'ask') askCard(m.items);
     if (m.type === 'reset') { log.innerHTML = ''; greet(); }
     if (m.type === 'rename') { nameBox.focus(); nameBox.select(); }
+    if (m.type === 'listen') listen(true);
+    if (m.type === 'status') $('status').textContent = m.text;
+    if (m.type === 'heard') {
+      $('status').textContent = m.text ? '' : "Sorry, I didn't catch that.";
+      if (m.text) { $('input').value = m.text; send(); }
+    }
+    if (m.type === 'speak') { speak = m.on; if (!speak) speechSynthesis.cancel(); }
     if (m.type === 'busy') {
       busy = m.on;
       $('send').textContent = busy ? 'Stop' : 'Send';
-      $('status').textContent = busy ? 'Working…' : '';
+      if (!listening()) $('status').textContent = busy ? 'Working…' : '';
       if (!busy) $('input').focus();
     }
   });

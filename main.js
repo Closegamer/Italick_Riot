@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, Tray, Menu, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, screen, Tray, Menu, ipcMain, dialog, globalShortcut, session: browserSession } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -13,7 +13,8 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 // every file in src/actions is an action module; its file name is the action name
 const ALL_ACTIONS = fs.readdirSync(path.join(__dirname, 'src', 'actions')).filter((f) => f.endsWith('.js')).map((f) => f.slice(0, -3));
 const SETTINGS = path.join(app.getPath('userData'), 'settings.json');
-let settings = { off: [], size: 130, permissions: 'default', name: 'Assistant' };
+let settings = { off: [], size: 130, permissions: 'default', name: 'Assistant', speak: false };
+const TALK_KEY = 'Control+Alt+Space'; // global: open the chat and start listening
 try { settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS, 'utf8')) }; } catch {}
 const save = () => fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2));
 const enabled = () => ALL_ACTIONS.filter((a) => !settings.off.includes(a));
@@ -30,6 +31,7 @@ function menu() {
   const radio = (items, isOn, pick) => items.map(([label, value]) => ({ label, type: 'radio', checked: isOn(value), click: () => pick(value) }));
   return Menu.buildFromTemplate([
     { label: 'Open chat', click: () => toggleChat() },
+    { label: 'Talk', accelerator: TALK_KEY, click: () => talk() },
     { label: 'Rename…', click: () => { if (!chat?.isVisible()) toggleChat(); chat?.webContents.send('claude', { type: 'rename' }); } },
     { label: 'New conversation', click: () => newChat() },
     { type: 'separator' },
@@ -53,6 +55,16 @@ function menu() {
         save();
         win.webContents.executeJavaScript(`setAvatarSize(${px})`);
       }),
+    },
+    {
+      label: 'Speak replies',
+      type: 'checkbox',
+      checked: settings.speak,
+      click: (item) => {
+        settings.speak = item.checked;
+        save();
+        chat?.webContents.send('claude', { type: 'speak', on: item.checked });
+      },
     },
     {
       label: 'Start with Windows',
@@ -95,6 +107,7 @@ function findClaude() {
 const persona = () => `Your name is ${settings.name}. `
   + 'You are talking to the user through a small desktop assistant character (a friendly geek in glasses who walks around their screen). '
   + 'Replies appear in a small chat panel: keep them short, warm and in plain text with little markdown. '
+  + 'Always answer in the language the user writes or speaks in. '
   + 'You can work on their computer with your tools; the working directory is their home folder.';
 let session = null, job = null;
 const toChat = (msg) => chat?.webContents.send('claude', msg);
@@ -160,6 +173,42 @@ function newChat() {
   chat?.webContents.send('claude', { type: 'reset' });
 }
 
+// ---------- voice: a local Whisper worker (voice/stt.py) turns the chat's raw recordings into text ----------
+let stt = null;
+const pending = []; // recordings waiting for the worker, in order
+function transcribe(samples) {
+  const file = path.join(os.tmpdir(), `assistant-voice-${Date.now()}.f32`);
+  fs.writeFileSync(file, Buffer.from(samples));
+  if (!stt) {
+    let stderr = '';
+    stt = spawn('python', [path.join(__dirname, 'voice', 'stt.py')], { windowsHide: true });
+    stt.stderr.on('data', (d) => { stderr += d; });
+    stt.on('error', () => {}); // reported on close
+    stt.on('close', (code) => {
+      stt = null;
+      pending.splice(0).forEach((f) => fs.rm(f, () => {}));
+      if (code) toChat({ type: 'error', text: `Voice input needs Python with faster-whisper (pip install faster-whisper).\n${stderr.trim().slice(-300)}` });
+    });
+    readline.createInterface({ input: stt.stdout }).on('line', (line) => {
+      let m;
+      try { m = JSON.parse(line); } catch { return; }
+      if (m.ready) return toChat({ type: 'status', text: 'Transcribing…' });
+      fs.rm(pending.shift(), () => {});
+      toChat(m.error ? { type: 'error', text: m.error } : { type: 'heard', text: m.text });
+    });
+    toChat({ type: 'status', text: 'Loading the speech model (the first time it downloads ~500 MB)…' });
+  }
+  pending.push(file);
+  stt.stdin.write(file + '\n');
+}
+
+function talk() {
+  if (!chat?.isVisible()) toggleChat();
+  const go = () => { chat.focus(); chat.webContents.send('claude', { type: 'listen' }); };
+  if (chat.webContents.isLoading()) chat.webContents.once('did-finish-load', () => setTimeout(go, 300));
+  else go();
+}
+
 // ---------- windows ----------
 const preload = path.join(__dirname, 'preload.js');
 
@@ -170,7 +219,7 @@ function toggleChat(near) {
       backgroundColor: '#1e1f24', skipTaskbar: false, title: settings.name, webPreferences: { preload },
     });
     chat.setAlwaysOnTop(true, 'screen-saver');
-    chat.loadFile('chat.html', { query: { name: settings.name } });
+    chat.loadFile('chat.html', { query: { name: settings.name, speak: settings.speak ? '1' : '0' } });
     chat.on('close', (e) => { if (!quitting) { e.preventDefault(); chat.hide(); } });
     chat.once('ready-to-show', () => toggleChat(near));
     return;
@@ -193,6 +242,7 @@ ipcMain.on('ask', (_e, text) => ask(text));
 ipcMain.on('allow', (_e, rules) => ask('Approved - please go ahead.', rules));
 ipcMain.on('stop', stop);
 ipcMain.on('new-chat', newChat);
+ipcMain.on('transcribe', (_e, samples) => transcribe(samples));
 ipcMain.on('set-name', (_e, raw) => {
   const name = String(raw).replace(/\s+/g, ' ').trim().slice(0, 24);
   if (!name) return;
@@ -205,6 +255,7 @@ ipcMain.on('set-name', (_e, raw) => {
 
 if (!app.requestSingleInstanceLock()) app.quit(); // a second click on the shortcut must not spawn a second assistant
 else app.whenReady().then(() => {
+  browserSession.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'media')); // microphone for voice input
   const d = screen.getPrimaryDisplay();
   const { x, y, width, height } = d.bounds;
   // Transparent overlay over the whole screen (incl. taskbar) so he can roam anywhere; clicks pass through except on him.
@@ -232,5 +283,6 @@ else app.whenReady().then(() => {
   tray.setToolTip(settings.name);
   tray.setContextMenu(menu());
   tray.on('click', () => toggleChat());
+  globalShortcut.register(TALK_KEY, talk);
 });
-app.on('before-quit', () => { quitting = true; stop(); });
+app.on('before-quit', () => { quitting = true; stop(); stt?.kill(); });

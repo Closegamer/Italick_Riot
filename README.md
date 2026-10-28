@@ -7,7 +7,7 @@ While Claude works he sits down with his laptop and types.
 
 ## Run
 
-Needs Node.js and Claude Code installed and signed in (`claude` once in a terminal).
+Needs Node.js and Claude Code installed and signed in (`claude` once in a terminal). Voice input also needs Python with `faster-whisper`.
 
 ```
 npm install
@@ -17,6 +17,10 @@ npm start
 ## Use
 
 - **Click** him: open/close the chat. **Drag** him: carry him; let go to drop or throw.
+- **Voice**: press **Ctrl+Alt+Space** anywhere (or 🎤 in the chat) and speak; it sends when you pause. Speech is
+  transcribed locally with Whisper (`pip install faster-whisper`; the ~500 MB model downloads on first use).
+  Tray > *Speak replies* reads his answers aloud with the installed Windows voices.
+- **Name**: click the name in the chat header (or tray > *Rename…*) to give him a name.
 - **Tray icon** (right-click): open chat, new conversation, actions on/off, permissions, size, start with Windows.
 - **Permissions**: *Ask before changes* (default — the chat shows Allow/Deny for edits and commands),
   *Auto-approve file edits*, or *Full auto* (Claude acts without asking; you confirm once when switching).
@@ -30,6 +34,7 @@ npm start
 | `src/geek.js` | The character: jointed model, textures, poses (`stand`, `walk`, `sit`, `held`) |
 | `src/actions/*.js` | Behaviour modules picked at random by weight — add a file to add a behaviour |
 | `src/parts.js` | Shared procedural-modelling helpers |
-| `chat.html` | Chat panel |
+| `chat.html` | Chat panel: messages, approvals, voice recording, read-aloud |
+| `voice/stt.py` | Local Whisper speech-to-text worker (raw 16 kHz float32 in, JSON lines out) |
 
 Settings live in `%APPDATA%\desktop-assistant\settings.json`.
