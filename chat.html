@@ -135,9 +135,15 @@
   let speak = new URLSearchParams(location.search).get('speak') === '1';
   function say(text) {
     if (!speak) return;
-    const u = new SpeechSynthesisUtterance(text.replace(/[`*_#>]/g, ''));
+    // read words only: no markdown symbols, no emoji (with their joiners and variation selectors)
+    const words = text.replace(/[`*_#>]/g, '').replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f]/gu, '').trim();
+    if (!words) return;
+    const u = new SpeechSynthesisUtterance(words);
     u.lang = /[а-яё]/i.test(text) ? 'ru-RU' : 'en-US';
     u.voice = speechSynthesis.getVoices().find((v) => v.lang.startsWith(u.lang.slice(0, 2))) ?? null;
+    // his mouth moves while any reply is being spoken (replies can queue up)
+    u.onstart = () => bridge.send('talking', true);
+    u.onend = u.onerror = () => setTimeout(() => bridge.send('talking', speechSynthesis.speaking), 50);
     speechSynthesis.speak(u);
   }
 

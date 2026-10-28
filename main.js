@@ -225,13 +225,13 @@ let awaitingUntil = 0;
 function onPhrase(m) {
   const text = m.text?.trim();
   if (!text || job) return;
-  if (Date.now() < awaitingUntil) {
-    awaitingUntil = 0;
-    return withChat(() => toChat({ type: 'heard', text }));
-  }
   const rest = afterName(text, settings.name);
-  if (rest === null) return;
-  if (rest) return withChat(() => toChat({ type: 'heard', text: rest }));
+  const request = rest ?? (Date.now() < awaitingUntil ? text : null); // after "Yes?" the name isn't needed
+  if (request === null) return;
+  if (request) {
+    awaitingUntil = 0;
+    return withChat(() => toChat({ type: 'heard', text: request }));
+  }
   awaitingUntil = Date.now() + 8000; // name only: the next phrase is the request
   win.webContents.executeJavaScript('heardName()');
   withChat(() => toChat({ type: 'status', text: 'Yes? I’m listening…' }));
@@ -273,6 +273,7 @@ ipcMain.on('hide-chat', () => chat?.hide());
 ipcMain.on('ask', (_e, text) => ask(text));
 ipcMain.on('allow', (_e, rules) => ask('Approved - please go ahead.', rules));
 ipcMain.on('stop', stop);
+ipcMain.on('talking', (_e, on) => win.webContents.executeJavaScript(`setTalking(${!!on})`));
 ipcMain.on('new-chat', newChat);
 ipcMain.on('transcribe', (_e, samples) => transcribe(samples, (m) => toChat(m.error ? { type: 'error', text: m.error } : { type: 'heard', text: m.text })));
 ipcMain.on('wake-audio', (_e, samples) => { if (settings.wake && !job) transcribe(samples, onPhrase); });

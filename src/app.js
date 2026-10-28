@@ -68,6 +68,8 @@ next();
 window.setActions = async (names) => { ACTIONS = await load(names); next(); };
 window.setAvatarSize = setSize;
 window.setBusy = (on) => { ctx.busy = on; next(); };
+let talking = false;
+window.setTalking = (on) => { talking = on; }; // the chat is reading a reply aloud
 
 // name tag above his head while the mouse is on him
 const tag = document.getElementById('tag');
@@ -185,6 +187,7 @@ renderer.setAnimationLoop(() => {
     tag.style.left = `${(r.left + r.right) / 2}px`;
     tag.style.top = `${r.top - 6}px`;
   }
+  k.talk(talking ? t : null);
   key.position.copy(p).add(KEY_DIR); // light follows him
   renderer.render(scene, camera);
 });

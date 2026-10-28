@@ -22,7 +22,11 @@ for line in sys.stdin:
     try:
         job = json.loads(line)
         audio = np.fromfile(job["path"], dtype=np.float32)
-        segments, info = model.transcribe(audio, vad_filter=True, beam_size=1, hotwords=job.get("hotwords") or None)
+        peak = np.abs(audio).max()
+        if peak > 0:
+            audio = audio * (0.9 / peak)  # quiet speech from a distant mic otherwise comes back empty
+        # no Whisper VAD: the app already cut out a phrase with speech in it, and the VAD was discarding short phrases
+        segments, info = model.transcribe(audio, vad_filter=False, beam_size=1, hotwords=job.get("hotwords") or None)
         text = " ".join(s.text.strip() for s in segments).strip()
         print(json.dumps({"text": text, "lang": info.language}), flush=True)
     except Exception as e:  # a broken recording must not kill the worker

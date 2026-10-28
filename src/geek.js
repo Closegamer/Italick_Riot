@@ -138,6 +138,8 @@ const M = {
   chair: std({ color: 0x2b2d33, roughness: 0.7 }),
   chrome: std({ color: 0xd0d4da, metalness: 1, roughness: 0.25 }),
   screen: new THREE.MeshBasicMaterial({ color: 0x24406e }),
+  mouth: new THREE.MeshBasicMaterial({ color: 0x4a1418 }),
+  teeth: new THREE.MeshBasicMaterial({ color: 0xf4f1ea }),
 };
 
 function face(A, B, jaw) {
@@ -180,6 +182,15 @@ function head(parent) {
     limb(h, M.frame, [s * 0.077, 0.018, fz(0.074, 0.018) + 0.008], [s * 0.104, 0.02, -0.03], 0.0035, 0.003);
   }
   limb(h, M.frame, [-0.009, 0.02, fz(0, 0.02) + 0.012], [0.009, 0.02, fz(0, 0.02) + 0.012], 0.0035, 0.0035); // bridge
+
+  // talking mouth over the painted grin: flattened to nothing when closed, opens downwards from the upper lip
+  const mouth = new THREE.Group();
+  mouth.position.set(0, -0.06, fz(0, -0.064) + 0.003);
+  h.add(mouth);
+  mesh(new THREE.CircleGeometry(1, 32).translate(0, -1, 0), M.mouth, mouth, [0, 0, 0], [0.022, 0.02, 1]);
+  mesh(new THREE.PlaneGeometry(1.3, 0.3).translate(0, -0.18, 0), M.teeth, mouth, [0, 0, 0.0005], [0.022, 0.02, 1]); // upper teeth
+  mouth.scale.y = 0.001;
+  h.userData.mouth = mouth;
 
   // messy hair: a cap plus tufts falling over the forehead
   blob(h, M.hair, [0, 0.03, -0.025], [0.116, 0.13, 0.118]);
@@ -302,6 +313,12 @@ export function createGeek() {
     // dir: 1 = walking right, -1 = left, 0 = facing the viewer (3/4 turn keeps his face visible)
     face: (dir) => { facing = dir * 1.15; },
     look: (yaw, pitch) => { lookYaw = yaw; lookPitch = pitch; },
+    // t = time while speaking, or null: the mouth opens and closes in a syllable-like rhythm
+    talk: (t) => {
+      const open = t === null ? 0 : 0.15 + 0.85 * Math.max(0, Math.sin(t * 13)) * (0.6 + 0.4 * Math.sin(t * 3.7 + 1));
+      const m = h.userData.mouth;
+      m.scale.y += (Math.max(0.001, open) - m.scale.y) * 0.5;
+    },
     breathe: (b) => spine.scale.set(1 + 0.006 * b, 1 + 0.008 * b, 1 + 0.015 * b),
 
     stand: (t, dt) => apply({ aL: 0.04 * Math.sin(t * 0.6), aR: -0.04 * Math.sin(t * 0.6) }, dt),
