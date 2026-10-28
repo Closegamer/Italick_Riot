@@ -1,6 +1,7 @@
 ﻿import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createGeek } from './geek.js';
+import { startWake } from './wake.js';
 
 // Behaviour = action modules in ./actions: { name, weight, start(k, ctx), update(k, dt, ctx) -> true when done, stop(k) },
 // picked at random by weight (the tray menu enables/disables them). The app itself handles being dragged and thrown,
@@ -70,8 +71,27 @@ window.setBusy = (on) => { ctx.busy = on; next(); };
 
 // name tag above his head while the mouse is on him
 const tag = document.getElementById('tag');
-window.setName = (name) => { tag.textContent = name; };
+let tagName = '';
+window.setName = (name) => { tagName = tag.textContent = name; };
 setName(q.get('name') || 'Assistant');
+
+// he heard his name: "Yes?" above his head for a few seconds, and he turns to the user
+let tagTimer;
+window.heardName = () => {
+  clearTimeout(tagTimer);
+  tag.textContent = 'Yes?';
+  tag.hidden = false;
+  k.face(0);
+  tagTimer = setTimeout(() => { tag.hidden = !over; tag.textContent = tagName; }, 4000);
+};
+
+// always-on listening for his name (tray > Listen for his name); phrases go to main for local transcription
+let stopWake = null;
+window.setWake = async (on) => {
+  stopWake?.();
+  stopWake = on ? await startWake((samples) => bridge.send('wake-audio', samples.buffer)) : null;
+};
+setWake(q.get('wake') === '1');
 
 // --- mouse: hovering makes the window catch the mouse; drag to carry him, release to drop or throw, click for chat
 const box = new THREE.Box3();

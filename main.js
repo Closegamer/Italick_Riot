@@ -1,9 +1,10 @@
-const { app, BrowserWindow, screen, Tray, Menu, ipcMain, dialog, globalShortcut, session: browserSession } = require('electron');
+﻿const { app, BrowserWindow, screen, Tray, Menu, ipcMain, dialog, globalShortcut, session: browserSession } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const readline = require('readline');
 const { spawn, spawnSync } = require('child_process');
+const { afterName } = require('./voice/wake');
 
 let tray, win, chat, quitting = false; // keep references, or they get garbage-collected
 
@@ -13,7 +14,7 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 // every file in src/actions is an action module; its file name is the action name
 const ALL_ACTIONS = fs.readdirSync(path.join(__dirname, 'src', 'actions')).filter((f) => f.endsWith('.js')).map((f) => f.slice(0, -3));
 const SETTINGS = path.join(app.getPath('userData'), 'settings.json');
-let settings = { off: [], size: 130, permissions: 'default', name: 'Assistant', speak: false };
+let settings = { off: [], size: 130, permissions: 'default', name: 'Assistant', speak: false, wake: true };
 const TALK_KEY = 'Control+Alt+Space'; // global: open the chat and start listening
 try { settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS, 'utf8')) }; } catch {}
 const save = () => fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2));
@@ -55,6 +56,16 @@ function menu() {
         save();
         win.webContents.executeJavaScript(`setAvatarSize(${px})`);
       }),
+    },
+    {
+      label: 'Listen for his name',
+      type: 'checkbox',
+      checked: settings.wake,
+      click: (item) => {
+        settings.wake = item.checked;
+        save();
+        win.webContents.executeJavaScript(`setWake(${item.checked})`);
+      },
     },
     {
       label: 'Speak replies',
@@ -107,7 +118,7 @@ function findClaude() {
 const persona = () => `Your name is ${settings.name}. `
   + 'You are talking to the user through a small desktop assistant character (a friendly geek in glasses who walks around their screen). '
   + 'Replies appear in a small chat panel: keep them short, warm and in plain text with little markdown. '
-  + 'Always answer in the language the user writes or speaks in. '
+  + 'Answer in the language of the latest user message (English gets English, Russian gets Russian), even if earlier messages used another language. '
   + 'You can work on their computer with your tools; the working directory is their home folder.';
 let session = null, job = null;
 const toChat = (msg) => chat?.webContents.send('claude', msg);
@@ -175,9 +186,9 @@ function newChat() {
 
 // ---------- voice: a local Whisper worker (voice/stt.py) turns the chat's raw recordings into text ----------
 let stt = null;
-const pending = []; // recordings waiting for the worker, in order
-function transcribe(samples) {
-  const file = path.join(os.tmpdir(), `assistant-voice-${Date.now()}.f32`);
+const pending = []; // { file, done } in the worker's order
+function transcribe(samples, done) {
+  const file = path.join(os.tmpdir(), `assistant-voice-${Date.now()}-${pending.length}.f32`);
   fs.writeFileSync(file, Buffer.from(samples));
   if (!stt) {
     let stderr = '';
@@ -186,27 +197,48 @@ function transcribe(samples) {
     stt.on('error', () => {}); // reported on close
     stt.on('close', (code) => {
       stt = null;
-      pending.splice(0).forEach((f) => fs.rm(f, () => {}));
+      pending.splice(0).forEach((p) => fs.rm(p.file, () => {}));
       if (code) toChat({ type: 'error', text: `Voice input needs Python with faster-whisper (pip install faster-whisper).\n${stderr.trim().slice(-300)}` });
     });
     readline.createInterface({ input: stt.stdout }).on('line', (line) => {
       let m;
       try { m = JSON.parse(line); } catch { return; }
-      if (m.ready) return toChat({ type: 'status', text: 'Transcribing…' });
-      fs.rm(pending.shift(), () => {});
-      toChat(m.error ? { type: 'error', text: m.error } : { type: 'heard', text: m.text });
+      if (m.ready) return;
+      const p = pending.shift();
+      fs.rm(p.file, () => {});
+      p.done(m);
     });
-    toChat({ type: 'status', text: 'Loading the speech model (the first time it downloads ~500 MB)…' });
   }
-  pending.push(file);
-  stt.stdin.write(file + '\n');
+  pending.push({ file, done });
+  stt.stdin.write(JSON.stringify({ path: file, hotwords: settings.name }) + '\n');
+}
+
+// open the chat if needed, then run fn once its page is ready
+function withChat(fn) {
+  if (!chat?.isVisible()) toggleChat();
+  if (chat.webContents.isLoading()) chat.webContents.once('did-finish-load', () => setTimeout(fn, 300));
+  else fn();
+}
+
+// a phrase heard by the always-on listener: act on it only if it starts with his name (or answers his "Yes?")
+let awaitingUntil = 0;
+function onPhrase(m) {
+  const text = m.text?.trim();
+  if (!text || job) return;
+  if (Date.now() < awaitingUntil) {
+    awaitingUntil = 0;
+    return withChat(() => toChat({ type: 'heard', text }));
+  }
+  const rest = afterName(text, settings.name);
+  if (rest === null) return;
+  if (rest) return withChat(() => toChat({ type: 'heard', text: rest }));
+  awaitingUntil = Date.now() + 8000; // name only: the next phrase is the request
+  win.webContents.executeJavaScript('heardName()');
+  withChat(() => toChat({ type: 'status', text: 'Yes? I’m listening…' }));
 }
 
 function talk() {
-  if (!chat?.isVisible()) toggleChat();
-  const go = () => { chat.focus(); chat.webContents.send('claude', { type: 'listen' }); };
-  if (chat.webContents.isLoading()) chat.webContents.once('did-finish-load', () => setTimeout(go, 300));
-  else go();
+  withChat(() => { chat.focus(); toChat({ type: 'listen' }); });
 }
 
 // ---------- windows ----------
@@ -242,7 +274,8 @@ ipcMain.on('ask', (_e, text) => ask(text));
 ipcMain.on('allow', (_e, rules) => ask('Approved - please go ahead.', rules));
 ipcMain.on('stop', stop);
 ipcMain.on('new-chat', newChat);
-ipcMain.on('transcribe', (_e, samples) => transcribe(samples));
+ipcMain.on('transcribe', (_e, samples) => transcribe(samples, (m) => toChat(m.error ? { type: 'error', text: m.error } : { type: 'heard', text: m.text })));
+ipcMain.on('wake-audio', (_e, samples) => { if (settings.wake && !job) transcribe(samples, onPhrase); });
 ipcMain.on('set-name', (_e, raw) => {
   const name = String(raw).replace(/\s+/g, ' ').trim().slice(0, 24);
   if (!name) return;
@@ -277,6 +310,7 @@ else app.whenReady().then(() => {
     actions: enabled().join(','),
     size: String(settings.size),
     name: settings.name,
+    wake: settings.wake ? '1' : '0',
   } });
 
   tray = new Tray(path.join(__dirname, 'icon.png'));

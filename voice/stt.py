@@ -1,7 +1,7 @@
 """Speech-to-text worker: loads a local Whisper model once, then transcribes one recording per stdin line.
 
-Each line is the path of a raw recording: 16 kHz mono float32 samples (the chat captures them that way,
-so no audio decoder/ffmpeg is needed).
+Each stdin line is JSON {"path": ..., "hotwords": ...}: a raw recording of 16 kHz mono float32 samples (the app
+captures them that way, so no audio decoder/ffmpeg is needed) and words to bias recognition towards (his name).
 
 Protocol (JSON lines on stdout): {"ready": true} once loaded, then {"text": ..., "lang": ...} per recording.
 Needs: pip install faster-whisper   (the model downloads on first run, ~500 MB for "small")
@@ -17,11 +17,12 @@ model = WhisperModel(sys.argv[1] if len(sys.argv) > 1 else "small", device="cpu"
 print(json.dumps({"ready": True}), flush=True)
 
 for line in sys.stdin:
-    path = line.strip()
-    if not path:
+    if not line.strip():
         continue
     try:
-        segments, info = model.transcribe(np.fromfile(path, dtype=np.float32), vad_filter=True, beam_size=1)
+        job = json.loads(line)
+        audio = np.fromfile(job["path"], dtype=np.float32)
+        segments, info = model.transcribe(audio, vad_filter=True, beam_size=1, hotwords=job.get("hotwords") or None)
         text = " ".join(s.text.strip() for s in segments).strip()
         print(json.dumps({"text": text, "lang": info.language}), flush=True)
     except Exception as e:  # a broken recording must not kill the worker
