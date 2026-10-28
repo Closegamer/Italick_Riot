@@ -1,0 +1,14 @@
+{
+  "name": "desktop-assistant",
+  "version": "0.1.0",
+  "description": "A 3D desktop character that walks around your screen and gets things done with Claude Code",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^45.1.0",
+    "three": "^0.186.1"
+  }
+}
