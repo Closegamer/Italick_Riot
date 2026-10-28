@@ -13,7 +13,7 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 // every file in src/actions is an action module; its file name is the action name
 const ALL_ACTIONS = fs.readdirSync(path.join(__dirname, 'src', 'actions')).filter((f) => f.endsWith('.js')).map((f) => f.slice(0, -3));
 const SETTINGS = path.join(app.getPath('userData'), 'settings.json');
-let settings = { off: [], size: 130, permissions: 'default' };
+let settings = { off: [], size: 130, permissions: 'default', name: 'Assistant' };
 try { settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS, 'utf8')) }; } catch {}
 const save = () => fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2));
 const enabled = () => ALL_ACTIONS.filter((a) => !settings.off.includes(a));
@@ -30,6 +30,7 @@ function menu() {
   const radio = (items, isOn, pick) => items.map(([label, value]) => ({ label, type: 'radio', checked: isOn(value), click: () => pick(value) }));
   return Menu.buildFromTemplate([
     { label: 'Open chat', click: () => toggleChat() },
+    { label: 'Rename…', click: () => { if (!chat?.isVisible()) toggleChat(); chat?.webContents.send('claude', { type: 'rename' }); } },
     { label: 'New conversation', click: () => newChat() },
     { type: 'separator' },
     { label: 'Actions', enabled: false },
@@ -91,7 +92,8 @@ function findClaude() {
   const where = spawnSync('where', ['claude.exe'], { encoding: 'utf8' }).stdout?.split(/\r?\n/).filter(Boolean) ?? [];
   return [...known, ...where].find((p) => fs.existsSync(p));
 }
-const PERSONA = 'You are talking to the user through a small desktop assistant character (a friendly geek in glasses who walks around their screen). '
+const persona = () => `Your name is ${settings.name}. `
+  + 'You are talking to the user through a small desktop assistant character (a friendly geek in glasses who walks around their screen). '
   + 'Replies appear in a small chat panel: keep them short, warm and in plain text with little markdown. '
   + 'You can work on their computer with your tools; the working directory is their home folder.';
 let session = null, job = null;
@@ -115,7 +117,7 @@ function ask(prompt, allow = []) {
   if (job) return;
   const exe = findClaude();
   if (!exe) return toChat({ type: 'error', text: 'Claude Code is not installed. Get it at https://claude.com/claude-code, sign in once, then try again.' });
-  const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', settings.permissions, '--append-system-prompt', PERSONA];
+  const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', settings.permissions, '--append-system-prompt', persona()];
   if (session) args.push('--resume', session);
   if (allow.length) args.push('--allowedTools', ...allow);
   job = spawn(exe, args, { cwd: os.homedir(), windowsHide: true });
@@ -165,10 +167,10 @@ function toggleChat(near) {
   if (!chat) {
     chat = new BrowserWindow({
       width: 380, height: 540, minWidth: 300, minHeight: 320, show: false, frame: false,
-      backgroundColor: '#1e1f24', skipTaskbar: false, title: 'Assistant', webPreferences: { preload },
+      backgroundColor: '#1e1f24', skipTaskbar: false, title: settings.name, webPreferences: { preload },
     });
     chat.setAlwaysOnTop(true, 'screen-saver');
-    chat.loadFile('chat.html');
+    chat.loadFile('chat.html', { query: { name: settings.name } });
     chat.on('close', (e) => { if (!quitting) { e.preventDefault(); chat.hide(); } });
     chat.once('ready-to-show', () => toggleChat(near));
     return;
@@ -191,6 +193,15 @@ ipcMain.on('ask', (_e, text) => ask(text));
 ipcMain.on('allow', (_e, rules) => ask('Approved - please go ahead.', rules));
 ipcMain.on('stop', stop);
 ipcMain.on('new-chat', newChat);
+ipcMain.on('set-name', (_e, raw) => {
+  const name = String(raw).replace(/\s+/g, ' ').trim().slice(0, 24);
+  if (!name) return;
+  settings.name = name;
+  save();
+  tray.setToolTip(name);
+  chat?.setTitle(name);
+  win.webContents.executeJavaScript(`setName(${JSON.stringify(name)})`);
+});
 
 if (!app.requestSingleInstanceLock()) app.quit(); // a second click on the shortcut must not spawn a second assistant
 else app.whenReady().then(() => {
@@ -214,10 +225,11 @@ else app.whenReady().then(() => {
     ground: String(d.workArea.y + d.workArea.height - y), // top edge of the taskbar, in window pixels
     actions: enabled().join(','),
     size: String(settings.size),
+    name: settings.name,
   } });
 
   tray = new Tray(path.join(__dirname, 'icon.png'));
-  tray.setToolTip('Desktop Assistant');
+  tray.setToolTip(settings.name);
   tray.setContextMenu(menu());
   tray.on('click', () => toggleChat());
 });

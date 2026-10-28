@@ -68,6 +68,11 @@ window.setActions = async (names) => { ACTIONS = await load(names); next(); };
 window.setAvatarSize = setSize;
 window.setBusy = (on) => { ctx.busy = on; next(); };
 
+// name tag above his head while the mouse is on him
+const tag = document.getElementById('tag');
+window.setName = (name) => { tag.textContent = name; };
+setName(q.get('name') || 'Assistant');
+
 // --- mouse: hovering makes the window catch the mouse; drag to carry him, release to drop or throw, click for chat
 const box = new THREE.Box3();
 function rect() {
@@ -78,6 +83,7 @@ let over = false, drag = null, vel = { x: 0, y: 0 };
 function hover(on) {
   if (on === over) return;
   over = on;
+  tag.hidden = !on;
   document.body.style.cursor = on ? 'grab' : '';
   bridge.send('hover', on);
 }
@@ -153,6 +159,11 @@ renderer.setAnimationLoop(() => {
     if (action.update(k, dt, ctx)) next();
   } else {
     k.stand(t, dt);
+  }
+  if (!tag.hidden) {
+    const r = rect();
+    tag.style.left = `${(r.left + r.right) / 2}px`;
+    tag.style.top = `${r.top - 6}px`;
   }
   key.position.copy(p).add(KEY_DIR); // light follows him
   renderer.render(scene, camera);

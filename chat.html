@@ -8,7 +8,9 @@
   * { box-sizing: border-box }
   body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif }
   header { -webkit-app-region: drag; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line) }
-  header b { flex: 1 }
+  #name { flex: 1; min-width: 0; padding: 2px 4px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text); font: 600 14px "Segoe UI", system-ui, sans-serif; -webkit-app-region: no-drag }
+  #name:hover { border-color: var(--line) }
+  #name:focus { border-color: var(--accent); background: var(--bg); outline: none }
   header button { -webkit-app-region: no-drag }
   #log { flex: 1; overflow-y: auto; padding: 12px 10px; display: flex; flex-direction: column; gap: 8px }
   .msg { max-width: 88%; padding: 8px 11px; border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text }
@@ -29,7 +31,7 @@
 </style>
 </head>
 <body>
-<header><b>Assistant</b><button id="new" title="Start a new conversation">New</button><button id="close" title="Hide" aria-label="Hide">✕</button></header>
+<header><input id="name" maxlength="24" title="Click to rename" aria-label="Assistant name" spellcheck="false"><button id="new" title="Start a new conversation">New</button><button id="close" title="Hide" aria-label="Hide">✕</button></header>
 <div id="log" aria-live="polite"></div>
 <div id="status"></div>
 <footer>
@@ -49,7 +51,21 @@
     log.scrollTop = log.scrollHeight;
     return d;
   }
-  const greet = () => add('msg bot', "Hi! I'm your desktop assistant. Ask me a question, or give me a task on this computer.");
+  // his name: shown in the header, click it to rename
+  let name = new URLSearchParams(location.search).get('name') || 'Assistant';
+  const nameBox = $('name');
+  nameBox.value = name;
+  function rename() {
+    const v = nameBox.value.replace(/\s+/g, ' ').trim();
+    if (v && v !== name) { name = v; bridge.send('set-name', v); }
+    nameBox.value = name;
+  }
+  nameBox.onchange = rename;
+  nameBox.onkeydown = (e) => {
+    if (e.key === 'Enter') { rename(); $('input').focus(); }
+    if (e.key === 'Escape') { e.stopPropagation(); nameBox.value = name; $('input').focus(); }
+  };
+  const greet = () => add('msg bot', `Hi! I'm ${name}. Ask me a question, or give me a task on this computer.`);
   greet();
 
   function send() {
@@ -87,6 +103,7 @@
     if (m.type === 'error') add('msg bot error', m.text);
     if (m.type === 'ask') askCard(m.items);
     if (m.type === 'reset') { log.innerHTML = ''; greet(); }
+    if (m.type === 'rename') { nameBox.focus(); nameBox.select(); }
     if (m.type === 'busy') {
       busy = m.on;
       $('send').textContent = busy ? 'Stop' : 'Send';
