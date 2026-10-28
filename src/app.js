@@ -143,12 +143,12 @@ renderer.setAnimationLoop(() => {
       mode = 'act';
       next();
     }
-  } else if (ctx.busy) { // Claude is working: sit down with the laptop and type
+  } else if (ctx.busy) { // Claude is working: desk and chair appear, he sits down and types
     p.y = ctx.ground;
     k.face(0);
-    k.look(0, 0.35);
+    k.look(0, 0.3);
     k.breathe(Math.sin(t * 1.4));
-    k.sit(t, dt, true);
+    k.work(t, dt);
   } else if (action) {
     if (action.update(k, dt, ctx)) next();
   } else {

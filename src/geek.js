@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { V, canvasTex, mesh, blob, sphere, limb, ring, paintHead, headGeo } from './parts.js';
 
 // The assistant: a friendly geek in glasses and a reindeer sweater. Jointed (hips, knees, shoulders, elbows, head)
-// so action modules can pose him: stand, walk, sit on the taskbar edge, type on his laptop, dangle when dragged.
+// so action modules can pose him: stand, walk, sit on the taskbar edge, work at a desk, dangle when dragged.
 // Units ~ metres, origin between his feet, +z faces the viewer. A joint rotated by -x swings forward.
 
 const SKIN = '#f0c6a0';
@@ -134,6 +134,9 @@ const M = {
   alu: std({ color: 0xc9cdd3, metalness: 0.8, roughness: 0.35 }),
   lid: std({ map: lidTex, metalness: 0.5, roughness: 0.4 }),
   keys: std({ color: 0x1d1f24, roughness: 0.7 }),
+  wood: std({ color: 0x9a6a3c, roughness: 0.6 }),
+  chair: std({ color: 0x2b2d33, roughness: 0.7 }),
+  chrome: std({ color: 0xd0d4da, metalness: 1, roughness: 0.25 }),
   screen: new THREE.MeshBasicMaterial({ color: 0x24406e }),
 };
 
@@ -218,7 +221,21 @@ function laptop(parent) {
   return { l, light };
 }
 
-const STANCE = { tL: 0, tR: 0, kL: 0, kR: 0, aL: 0, aR: 0, eL: -0.15, eR: -0.15, oL: 0.12, oR: 0.12, hips: 0.85, lean: 0, lap: 0 }; // hips 0.85 puts the soles on y = 0
+// desk and office chair that rise out of the floor while he works; the laptop sits on the desk
+function furniture(parent) {
+  const g = new THREE.Group();
+  parent.add(g);
+  mesh(new THREE.BoxGeometry(0.9, 0.04, 0.5), M.wood, g, [0, 0.62, 0.42]); // desk top
+  for (const x of [-0.41, 0.41]) for (const z of [0.21, 0.63]) mesh(new THREE.BoxGeometry(0.035, 0.6, 0.035), M.wood, g, [x, 0.3, z]);
+  mesh(new THREE.BoxGeometry(0.44, 0.05, 0.42), M.chair, g, [0, 0.4, -0.02]); // seat
+  mesh(new THREE.BoxGeometry(0.44, 0.42, 0.05), M.chair, g, [0, 0.68, -0.24]); // backrest
+  for (const x of [-0.19, 0.19]) for (const z of [-0.2, 0.16]) mesh(new THREE.BoxGeometry(0.03, 0.38, 0.03), M.chrome, g, [x, 0.19, z]);
+  const { l, light } = laptop(g);
+  l.position.set(0, 0.65, 0.36);
+  return { g, light };
+}
+
+const STANCE = { tL: 0, tR: 0, kL: 0, kR: 0, aL: 0, aR: 0, eL: -0.15, eR: -0.15, oL: 0.12, oR: 0.12, hips: 0.85, lean: 0, desk: 0 }; // hips 0.85 puts the soles on y = 0
 
 export function createGeek() {
   const root = new THREE.Group();
@@ -240,8 +257,7 @@ export function createGeek() {
     blob(shin.end, M.sole, [0, -0.07, 0.06], [0.068, 0.017, 0.135]);
     legs[S] = { thigh: thigh.pivot, shin: shin.pivot };
   }
-  const lap = laptop(hips);
-  lap.l.position.set(0, 0.17, 0.3);
+  const desk = furniture(turn);
 
   const spine = new THREE.Group(); // everything that breathes
   spine.position.y = 0.02;
@@ -275,8 +291,8 @@ export function createGeek() {
     }
     hips.position.y = cur.hips;
     spine.rotation.x = cur.lean;
-    lap.l.visible = cur.lap > 0.05;
-    lap.l.scale.setScalar(Math.max(0.001, cur.lap));
+    desk.g.visible = cur.desk > 0.02;
+    desk.g.scale.set(1, Math.max(0.001, cur.desk), 1); // grows up out of the floor
     turn.rotation.y += (facing - turn.rotation.y) * e;
     h.rotation.set(lookPitch, lookYaw, 0);
   }
@@ -300,16 +316,20 @@ export function createGeek() {
       }, dt);
     },
 
-    // sitting on the taskbar edge (origin = seat), legs dangling over it; typing = laptop on his lap
-    sit: (t, dt, typing) => {
-      const swing = typing ? 0 : 0.22;
-      const tap = (p) => (typing ? 0.06 * Math.max(0, Math.sin(t * 17 + p) * Math.sin(t * 3.1 + p)) : 0);
+    // sitting on the taskbar edge (origin = seat), legs dangling over it
+    sit: (t, dt) => apply({
+      tL: -1.5, tR: -1.5, kL: 1.45 + 0.22 * Math.sin(t * 2.2), kR: 1.45 + 0.22 * Math.sin(t * 2.2 + 2),
+      aL: -0.45, aR: -0.45, eL: -0.75, eR: -0.75, oL: 0.1, oR: 0.1, hips: 0.12,
+    }, dt),
+
+    // on the chair at the desk (origin = floor), typing on the laptop; the screen glows on his face
+    work: (t, dt) => {
+      const tap = (p) => 0.08 * Math.max(0, Math.sin(t * 17 + p) * Math.sin(t * 3.1 + p));
       apply({
-        tL: -1.5, tR: -1.5, kL: 1.45 + swing * Math.sin(t * 2.2), kR: 1.45 + swing * Math.sin(t * 2.2 + 2),
-        aL: typing ? -0.75 : -0.45, aR: typing ? -0.75 : -0.45, eL: (typing ? -0.95 : -0.75) + tap(0), eR: (typing ? -0.95 : -0.75) + tap(1.7),
-        oL: 0.1, oR: 0.1, hips: 0.12, lap: typing ? 1 : 0,
+        tL: -1.5, tR: -1.5, kL: 1.5, kR: 1.5, hips: 0.5,
+        aL: -0.45, aR: -0.45, eL: -1.1 + tap(0), eR: -1.1 + tap(1.7), oL: 0.05, oR: 0.05, desk: 1,
       }, dt);
-      lap.light.intensity = typing ? 0.6 + 0.1 * Math.sin(t * 9) : 0;
+      desk.light.intensity = 0.6 + 0.1 * Math.sin(t * 9);
     },
 
     // dangling from the mouse: arms flail, legs kick

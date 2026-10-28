@@ -13,7 +13,7 @@ export default {
     k.face(0);
     k.look(0.25 * Math.sin(t * 0.4), -0.05);
     k.breathe(Math.sin(t * 1.3));
-    k.sit(t, dt, false);
+    k.sit(t, dt);
     return t > this.len;
   },
 
