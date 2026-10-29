@@ -68,8 +68,8 @@ shadowCanvas.width = shadowCanvas.height = 256;
 {
   const g = shadowCanvas.getContext('2d');
   const grd = g.createRadialGradient(128, 128, 8, 128, 128, 128);
-  grd.addColorStop(0, 'rgba(0,0,0,0.55)');
-  grd.addColorStop(0.5, 'rgba(0,0,0,0.28)');
+  grd.addColorStop(0, 'rgba(0,0,0,0.75)');
+  grd.addColorStop(0.5, 'rgba(0,0,0,0.38)');
   grd.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = grd;
   g.fillRect(0, 0, 256, 256);
@@ -78,7 +78,7 @@ const shadowTex = new THREE.CanvasTexture(shadowCanvas);
 shadowTex.colorSpace = THREE.SRGBColorSpace;
 const contact = new THREE.Mesh(
   new THREE.PlaneGeometry(1, 1),
-  new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.4, toneMapped: false }),
+  new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.6, toneMapped: false }),
 );
 contact.renderOrder = -1;
 contact.position.z = -2;
@@ -639,10 +639,10 @@ renderer.setAnimationLoop(() => {
   const near = Math.max(0, 1 - height / (3 * ctx.SIZE));
   contact.visible = !gone && near > 0.02;
   if (contact.visible) {
-    const grow = 0.65 + 0.35 * near;
-    contact.position.set(p.x, ctx.ground + ctx.SIZE * 0.06, -2);
-    contact.scale.set(ctx.SIZE * 0.9 * grow, ctx.SIZE * 0.22 * grow, 1);
-    contact.material.opacity = 0.42 * near;
+    const grow = 0.7 + 0.3 * near;
+    contact.position.set(p.x, ctx.ground + ctx.SIZE * 0.07, -2);
+    contact.scale.set(ctx.SIZE * 1.0 * grow, ctx.SIZE * 0.26 * grow, 1);
+    contact.material.opacity = 0.6 * near;
   }
   key.position.copy(p).add(KEY_DIR); // light follows him
   renderer.render(scene, camera);

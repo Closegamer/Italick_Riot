@@ -218,7 +218,7 @@ function head(parent) {
     const b = Math.max(0, Math.min(1, v));
     for (const { lid, lash } of lids) {
       lid.position.y = 0.012 + 0.012 * (1 - b);
-      lid.scale.y = 0.001 + 0.015 * b;
+      lid.scale.y = 0.001 + 0.016 * b;
       lash.position.y = lid.position.y - lid.scale.y + 0.0015;
       lash.visible = b > 0.05;
     }
@@ -442,16 +442,16 @@ export function createGeek() {
   // current pose, eased towards each frame's target so switching actions never snaps
   const cur = { ...STANCE };
   let facing = 0, lookYaw = 0, lookPitch = 0, grip = null; // grip: joints held over any pose (carrying something)
-  let blink = 0, blinkAt = 2 + Math.random() * 4, blinkT = -1;
+  let blink = 0, blinkAt = 1.6 + Math.random() * 3, blinkT = -1;
   function updateBlink(dt) {
     if (blinkT >= 0) {
       blinkT += dt;
-      const a = Math.min(1, blinkT / 0.18);
-      blink = a < 0.35 ? a / 0.35 : 1 - (a - 0.35) / 0.65; // snap shut, open a little slower
+      const a = Math.min(1, blinkT / 0.22);
+      blink = a < 0.32 ? a / 0.32 : 1 - (a - 0.32) / 0.68; // snap shut, open a little slower
       if (a >= 1) {
         blinkT = -1;
         blink = 0;
-        blinkAt = Math.random() < 0.15 ? 0.22 : 2 + Math.random() * 4; // occasional double blink
+        blinkAt = Math.random() < 0.2 ? 0.18 : 1.6 + Math.random() * 3; // occasional double blink
       }
     } else if ((blinkAt -= dt) <= 0) blinkT = 0;
   }
@@ -516,13 +516,13 @@ export function createGeek() {
       }
       const l = solveLeg(lf.z, lfy, hipY), r = solveLeg(rf.z, rfy, hipY);
       const s = Math.sin(phase), c = Math.cos(phase);
-      const sway = 0.022 * Math.cos(phase - Math.PI); // weight shifts over the stance foot
-      const list = 0.035 * Math.cos(phase - Math.PI); // pelvis drops on the swing side
+      const sway = 0.032 * Math.cos(phase - Math.PI); // weight shifts over the stance foot
+      const list = 0.05 * Math.cos(phase - Math.PI); // pelvis drops on the swing side
       apply({
         tL: l.t, kL: l.k, fL: lf.pitch - (l.t + l.k), toeL: lf.toe,
         tR: r.t, kR: r.k, fR: rf.pitch - (r.t + r.k), toeR: rf.toe,
-        aL: 0.35 * s, aR: -0.35 * s, eL: -0.25 - 0.3 * Math.max(0, -c), eR: -0.25 - 0.3 * Math.max(0, c), oL: 0.08, oR: 0.08,
-        hips: hipY + 0.03, hipX: sway, list, roll: -list * 0.8, lean: 0.06, twist: -0.1 * s,
+        aL: 0.4 * s, aR: -0.4 * s, eL: -0.25 - 0.3 * Math.max(0, -c), eR: -0.25 - 0.3 * Math.max(0, c), oL: 0.08, oR: 0.08,
+        hips: hipY + 0.03, hipX: sway, list, roll: -list * 0.8, lean: 0.07, twist: -0.13 * s,
       }, dt);
     },
 
