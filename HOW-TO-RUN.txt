@@ -36,6 +36,23 @@ the running one back to the front.
 REQUIREMENTS
 Windows 10 or Windows 11, 64-bit. Nothing else.
 
+HOW TO UNINSTALL
+Italic installs nothing into Windows - no registry entries, no services,
+no startup items, and no admin rights are needed.
+
+1. Right-click the tray icon and choose "Quit".
+2. Delete Italic-1.0.exe (or the whole unzipped folder).
+3. Delete the folders it left behind. Press Win+R, paste a path, press
+   Enter, and delete the folder:
+     %LOCALAPPDATA%\Italic    (the unpacked app, about 300 MB)
+     %APPDATA%\Italic         (cache and preferences)
+     %APPDATA%\italic         (left by older builds)
+
+That is the whole uninstall. To use it again, just download and run it.
+
+If there is no tray icon but the process is still running: Task Manager
+-> Details -> end Italic.exe, then delete the folders above.
+
 VERSION
 Italic 1.0
 

@@ -59,6 +59,21 @@ self-extracting launcher (`tools/launcher.cs`, built with the .NET Framework com
 
 Useful when testing: `ITALIC_START_MS`, `ITALIC_ROAM_MS`, `ITALIC_WORK_MS`, `ITALIC_BATTLE_MS`, `ITALIC_ACTIONS=idle`.
 
+## Uninstall
+
+Italic installs nothing into Windows: no registry entries, no services, no startup items, no admin rights needed.
+
+1. Right-click the tray icon → **Quit**.
+2. Delete `Italic-1.0.exe` (or the whole unzipped folder).
+3. Delete the files it left behind — press **Win+R**, paste each path, press Enter, and delete the folder:
+   - `%LOCALAPPDATA%\Italic` — the unpacked app (the biggest one, ~300 MB)
+   - `%APPDATA%\Italic` — Electron/Chromium cache and preferences
+   - `%APPDATA%\italic` — the same, left by older builds
+
+That is the complete uninstall. To use it again later, just download the zip and run the exe.
+
+If the tray icon is gone but the process still runs: open **Task Manager → Details**, end `Italic.exe`, then delete the folders above.
+
 ## The full AI assistant (optional)
 
 This repository also contains the original chat assistant (`main.js`): a desktop pet with chat, voice input and output,
@@ -74,6 +89,10 @@ npm start
 Requirements: opencode and a DeepSeek API key. Voice input needs Python with `faster-whisper`; the voice lock needs
 `sherpa-onnx` (the speaker model is in `voice/speaker.onnx`). The assistant can install opencode himself ("install
 opencode"). It answers in the chat panel, listens for its name, and can be switched between DeepSeek models.
+
+To remove the full assistant: quit it, delete the project folder and `%APPDATA%\desktop-assistant`. If *Start with
+Windows* was enabled, turn it off in **Task Manager → Startup apps**; it runs from source, so there is nothing else to
+uninstall.
 
 ## Code
 
