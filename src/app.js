@@ -2,17 +2,24 @@
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createGeek } from './geek.js';
 import { startWake } from './wake.js';
+import { createDoor } from './door.js';
+import { createFlag, GRIP } from './flag.js';
+import { createRoam } from './roam.js';
+import * as sfx from './sfx.js';
 
 // Behaviour = action modules in ./actions: { name, weight, start(k, ctx), update(k, dt, ctx) -> true when done, stop(k) },
 // picked at random by weight (the tray menu enables/disables them). The app itself handles being dragged and thrown,
-// and "working" (sitting with the laptop) while Claude is busy.
+// and "working" (sitting with the laptop) while the AI is busy.
 const q = new URLSearchParams(location.search);
+const ALLOW_HOME = q.get('home') !== '0'; // the Italic demo disables living in a terminal window
 const load = (names) => Promise.all(names.filter(Boolean).map((n) => import(`./actions/${n}.js`).then((m) => m.default)));
 let ACTIONS = await load((q.get('actions') ?? 'walk,idle,sit').split(','));
 
-const W = innerWidth, H = innerHeight;
+let W = innerWidth; const H = innerHeight; // H: the camera's top edge, fixed (see resize)
 // scene is in pixels with y up; ground = top edge of the taskbar
-const ctx = { W, H, SIZE: Number(q.get('size') || 130), ground: H - Number(q.get('ground') ?? H), busy: false };
+// ground: the floor he stands on (the taskbar top, or the bottom of the window he lives in); x1..x2: where he may walk
+const ctx = { W, H, SIZE: Number(q.get('size') || 130), ground: H - Number(q.get('ground') ?? H), x1: 0, x2: W, busy: false };
+const TASKBAR = ctx.ground;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(devicePixelRatio);
@@ -40,8 +47,22 @@ scene.add(key, rim, new THREE.HemisphereLight(0xfff4e0, 0x35284a, 1.1));
 
 const k = createGeek();
 k.root.position.set(W * 0.3, ctx.ground, 0);
+k.root.visible = false; // until he walks out of his door
+
+// Windows can squeeze the overlay (e.g. when Voice access docks its bar) and main then restores it. The window's top
+// stays put, so the scene keeps its coordinates (H = the height at load, scene y = H - window y) and only the camera's
+// bottom edge follows the new height: him, his door, desk and ropes all stay where they were placed.
+addEventListener('resize', () => {
+  W = ctx.W = innerWidth;
+  renderer.setSize(W, innerHeight);
+  Object.assign(camera, { right: W, bottom: H - innerHeight });
+  camera.updateProjectionMatrix();
+});
 scene.add(k.root);
 key.target = k.root;
+const door = createDoor();
+const flag = createFlag();
+scene.add(door.root, flag.root);
 
 function setSize(px) {
   ctx.SIZE = px;
@@ -54,22 +75,211 @@ function setSize(px) {
 setSize(ctx.SIZE);
 
 let action = null, mode = 'act', t = 0; // mode: act (actions / working) | held (dragged) | fall
+let typingUntil = 0; // while he types into his terminal (main calls typing(seconds))
+window.typing = (sec) => { typingUntil = t + sec; approach = null; };
+let approach = null, approachPhase = 0, farFor = 0; // walking over to the mouse pointer: target x; how long it's been far away
 function next() {
   action?.stop(k, ctx);
   action = null;
-  if (ctx.busy || !ACTIONS.length) return; // working, or nothing enabled: the loop handles it
+  approach = null;
+  if (ctx.busy || gone || !ACTIONS.length) return; // working, or nothing enabled: the loop handles it
   let r = Math.random() * ACTIONS.reduce((sum, a) => sum + (a.weight ?? 1), 0);
   action = ACTIONS.find((a) => (r -= a.weight ?? 1) < 0) ?? ACTIONS[0];
   action.start(k, ctx);
 }
+
+// scripted scenes (leaving through a door, coming back) are generators: each frame resumes them with dt
+let script = null, gone = true, roamScript = null, battleQueued = false; // he starts behind his door and comes out of it
+const run = (scene) => { action?.stop(k, ctx); action = null; approach = null; script = scene; script.next(); };
+function* during(sec, each) {
+  for (let s = 0; s < sec;) { const dt = yield; s += dt; each(Math.min(1, s / sec), dt); }
+}
+const ease = (a) => a * a * (3 - 2 * a);
+const pop = (a) => 1 + 2.7 * (a - 1) ** 3 + 1.7 * (a - 1) ** 2; // overshoots a little, like popping into existence
+const STEP = 0.5, SPEED = 0.65, DEPTH = 1.4; // units, units/s (as in the walk action); how far in he walks
+// beyond the door plane: smaller and a bit higher, faking perspective for the orthographic camera
+function inside(a) {
+  const p = k.root.position;
+  p.z = -a * DEPTH * ctx.SIZE;
+  p.y = ctx.ground + 0.12 * ctx.SIZE * a;
+  k.root.scale.setScalar(ctx.SIZE * (1 - 0.3 * a));
+}
+
+// "go rest": five steps, a door appears, he turns, opens it, walks in, it shuts and vanishes
+function* leaving() {
+  const p = k.root.position, S = ctx.SIZE, x0 = p.x, dir = p.x < (ctx.x1 + ctx.x2) / 2 ? 1 : -1;
+  yield* during(5 * STEP / SPEED, (a, dt) => {
+    p.x = x0 + dir * a * 5 * STEP * S;
+    k.face(dir);
+    k.look(0, 0);
+    k.walk(a * 5 * Math.PI, dt);
+  });
+  door.place(p.x, ctx.ground, -0.3 * S, S);
+  yield* during(0.6, (a, dt) => { door.set(pop(a), 0); k.face(0); k.look(-dir * 0.3, 0); k.stand(t, dt); });
+  yield* during(0.5, (a, dt) => { k.turn(dir * Math.PI); k.stand(t, dt); });
+  sfx.doorOpen();
+  yield* during(0.7, (a, dt) => { door.set(1, ease(a)); k.stand(t, dt); });
+  yield* during(DEPTH / SPEED, (a, dt) => { inside(a); k.walk(a * (DEPTH / STEP) * Math.PI, dt); });
+  sfx.doorClose();
+  yield* during(0.7, (a, dt) => { door.set(1, 1 - ease(a)); k.stand(t, dt); });
+  k.root.visible = false;
+  yield* during(0.4, (a) => door.set(1 - ease(a), 0));
+  gone = true;
+}
+
+// the same door appears where he left, he walks out of it and it vanishes behind him
+function* returning() {
+  gone = false;
+  const p = k.root.position;
+  door.place(p.x, ctx.ground, -0.3 * ctx.SIZE, ctx.SIZE);
+  inside(1);
+  k.turn(0);
+  k.root.visible = true;
+  yield* during(0.6, (a, dt) => { door.set(pop(a), 0); k.stand(t, dt); });
+  sfx.doorOpen();
+  yield* during(0.7, (a, dt) => { door.set(1, ease(a)); k.stand(t, dt); });
+  yield* during(DEPTH / SPEED, (a, dt) => { inside(1 - a); k.walk(a * (DEPTH / STEP) * Math.PI, dt); });
+  inside(0);
+  sfx.doorClose();
+  yield* during(0.7, (a, dt) => { door.set(1, 1 - ease(a)); k.look(0, 0); k.stand(t, dt); });
+  yield* during(0.4, (a, dt) => { door.set(1 - ease(a), 0); k.stand(t, dt); });
+}
+
+// his flag at the left edge of the screen: which AI is his brain and where he is online (main sends setFlag)
+const FLAG_X = 40;
+let flagInfo = null, flagTodo = false, flagUp = false; // the latest info; a new brain waiting for him; planted
+window.setFlag = (info) => {
+  const sameBrain = flagInfo?.brain.join('/') === info.brain.join('/');
+  flagInfo = info;
+  if (flagUp && (sameBrain || home)) flag.draw(info); // location news (or he's off in a terminal): repainted where it stands
+  else flagTodo = true;
+};
+// pace: 1 = his stroll; flag errands hurry (same steps, quicker), the leisurely walk is for wandering about
+const HURRY = 2.5;
+function* walkTo(x, each = () => {}, pace = HURRY) {
+  const p = k.root.position, x0 = p.x, d = x - x0, steps = Math.abs(d) / (STEP * ctx.SIZE);
+  yield* during(Math.max(0.05, Math.abs(d) / (pace * SPEED * ctx.SIZE)), (a, dt) => {
+    p.x = x0 + d * a;
+    k.face(Math.sign(d) || -1);
+    k.look(0, 0);
+    k.walk(a * steps * Math.PI, dt);
+    each();
+  });
+}
+const hand = new THREE.Vector3();
+function* flagScene() {
+  flagTodo = false;
+  const S = ctx.SIZE;
+  if (flagUp) { // a new brain: he walks over and repaints it
+    yield* walkTo(FLAG_X + flag.width + 0.4 * S); // beside the cloth, not in front of it
+    yield* during(0.3, (a, dt) => { k.face(-1); k.look(-0.4, 0.1); flag.furl(1 - ease(a)); k.stand(t, dt); });
+    flag.draw(flagInfo);
+    sfx.cloth();
+    yield* during(0.4, (a, dt) => { flag.furl(ease(a)); k.stand(t, dt); });
+    yield* during(0.3, (a, dt) => { k.face(0); k.look(0, 0); k.stand(t, dt); });
+    return;
+  }
+  // the first time: the flag pops into his left hand (the one in front when he walks left), he carries it to the left
+  // edge and plants it there
+  flag.draw(flagInfo);
+  const carry = () => {
+    k.hand('L', hand);
+    flag.place(hand.x, Math.max(ctx.ground + 4, hand.y - GRIP), -0.4 * S); // just behind him, so the cloth trailing behind doesn't hide him
+  };
+  k.hold({ aL: -0.45, eL: -1.1, oL: 0.15 });
+  sfx.cloth();
+  yield* during(0.3, (a, dt) => { k.face(0); k.stand(t, dt); carry(); flag.set(pop(a)); });
+  yield* walkTo(FLAG_X + 0.45 * S, carry);
+  const { x: x0, y: y0 } = flag.root.position; // into the ground, a little behind him
+  sfx.flagPlant();
+  yield* during(0.3, (a, dt) => { k.face(-1); k.stand(t, dt); flag.place(x0 + (FLAG_X - x0) * ease(a), y0 + (TASKBAR - 10 - y0) * ease(a), -0.3 * S); });
+  k.hold(null);
+  flagUp = true;
+  yield* walkTo(FLAG_X + flag.width + 0.4 * S); // out from in front of it
+  yield* during(0.3, (a, dt) => { k.face(0); k.look(0, 0); k.stand(t, dt); });
+  flag.draw(flagInfo); // news that came while he carried it
+  flagTodo = false;
+}
+
+// screensaver: while the user is away he roams the whole screen (see roam.js); main switches it on and off
+const roamer = createRoam({ k, ctx, scene, during, ease, time: () => t });
+window.setRoam = (on) => { ctx.roam = on; };
+// a statue battle, started by the Italic demo's timer. Roaming is allowed to finish (it packs the ladder/rope away)
+// before the fight starts; door/flag/leaving scenes are not interrupted.
+window.battle = () => {
+  if (gone || home) return false;
+  if (script && script !== roamScript) return false;
+  if (script && script === roamScript) { ctx.roam = false; battleQueued = true; return true; }
+  battleQueued = false;
+  run(roamer.battle());
+  return true;
+};
+
+// quitting: he finishes what he's doing (comes down from the windows), then leaves through the door; resolves once he's gone
+let bye = null;
+window.leaveForQuit = () => new Promise((resolve) => { bye = resolve; ctx.roam = false; });
+window.setEdges = roamer.setEdges;
+
+// Home: drop him into a terminal window and he lives there - on its bottom edge, within its width, carried along when
+// the window moves. Closing or minimizing it sends him back down to the taskbar.
+// ponytail: he's drawn over everything, so a window lying on top of his terminal doesn't hide him
+let wins = [], home = null; // all visible windows (topmost first, window px from the top-left); his terminal
+const INSET = 12; // px between the window's bottom border and his feet
+function moveIn(w) {
+  if (home?.id !== w.id) bridge.send('home', w.id); // main types "here" commands into this window
+  home = w;
+  ctx.ground = H - (w.b - INSET);
+  ctx.x1 = w.l + 0.35 * ctx.SIZE;
+  ctx.x2 = Math.max(ctx.x1 + 1, w.r - 0.35 * ctx.SIZE);
+}
+function moveOut() {
+  if (home) bridge.send('home', null);
+  home = null;
+  Object.assign(ctx, { ground: TASKBAR, x1: 0, x2: W });
+}
+window.setWindows = (list) => {
+  wins = list;
+  if (!home) return;
+  const w = list.find((r) => r.id === home.id);
+  const p = k.root.position, settled = mode === 'act' && !script && !gone;
+  if (!w) { // closed or minimized: down to the taskbar (by parachute, from up there)
+    moveOut();
+    if (settled) { mode = 'fall'; vel = { x: 0, y: 0 }; }
+    return;
+  }
+  const dx = w.l - home.l;
+  moveIn(w);
+  if (settled) { // the window moved or was resized: he goes with it
+    p.x = Math.max(ctx.x1, Math.min(ctx.x2, p.x + dx));
+    p.y = ctx.ground;
+  }
+};
+// "leave the window": down to the taskbar (by parachute), back on top of everything
+window.leaveHome = () => {
+  if (!home) return;
+  moveOut();
+  if (mode === 'act' && !script && !gone) { action?.stop(k, ctx); action = null; mode = 'fall'; vel = { x: 0, y: 0 }; }
+};
+// where he was let go: the topmost window under the cursor, if it's a terminal, becomes his home; anywhere else, not
+function landAt(x, y) {
+  const w = wins.find((r) => x >= r.l && x <= r.r && y >= r.t && y <= r.b);
+  if (ALLOW_HOME && w?.term && w.b - w.t > 1.2 * ctx.SIZE) moveIn(w);
+  else moveOut();
+}
+window.setLook = k.setLook;
+
 next();
 
 // called from the main process
+window.leave = () => { if (!gone && !script && mode === 'act') run(leaving()); };
+window.comeBack = () => { if (gone) run(returning()); };
+window.comeBack(); // his entrance when the app starts
 window.setActions = async (names) => { ACTIONS = await load(names); next(); };
 window.setAvatarSize = setSize;
-window.setBusy = (on) => { ctx.busy = on; next(); };
+window.setBusy = (on) => { ctx.busy = on; if (on) window.comeBack(); next(); }; // a task calls him back to work
 let talking = false;
-window.setTalking = (on) => { talking = on; }; // the chat is reading a reply aloud
+let quietSince = 0; // when he last stopped talking
+window.setTalking = (on) => { if (talking && !on) quietSince = performance.now(); talking = on; }; // the chat is reading a reply aloud
 
 // name tag above his head while the mouse is on him
 const tag = document.getElementById('tag');
@@ -80,6 +290,7 @@ setName(q.get('name') || 'Assistant');
 // he heard his name: "Yes?" above his head for a few seconds, and he turns to the user
 let tagTimer;
 window.heardName = () => {
+  window.comeBack();
   clearTimeout(tagTimer);
   tag.textContent = 'Yes?';
   tag.hidden = false;
@@ -91,7 +302,15 @@ window.heardName = () => {
 let stopWake = null;
 window.setWake = async (on) => {
   stopWake?.();
-  stopWake = on ? await startWake((samples) => bridge.send('wake-audio', samples.buffer)) : null;
+  // a phrase that starts while he's speaking (or just after) is his own voice from the speakers: it's dropped unheard
+  let echo = false;
+  stopWake = on ? await startWake(
+    (samples) => { if (echo) bridge.send('wake-speech', false); else bridge.send('wake-audio', samples.buffer); },
+    (talk) => {
+      if (talk) echo = talking || performance.now() - quietSince < 800;
+      if (!echo) bridge.send('wake-speech', talk);
+    },
+  ) : null;
 };
 setWake(q.get('wake') === '1');
 
@@ -109,14 +328,21 @@ function hover(on) {
   document.body.style.cursor = on ? 'grab' : '';
   bridge.send('hover', on);
 }
+// the mouse pointer, in scene coordinates: main sends it as it moves (anywhere on screen), mouse moves over him update it too
+let pointer = null;
+window.setPointer = (x, y) => { pointer = ctx.pointer = { x, y: H - y }; }; // ctx.pointer: walks stay near it
 addEventListener('mousemove', (e) => {
+  pointer = ctx.pointer = { x: e.clientX, y: H - e.clientY };
   if (!drag) {
+    // grabbable while idle, working or roaming; not behind the door, in the flag scene or mid-fight
+    if (gone || (script && script !== roamScript)) return hover(false);
     const r = rect();
     return hover(e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom);
   }
   if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 5) {
     drag.moved = true;
     mode = 'held';
+    if (script === roamScript) { roamer.cancel(); ctx.roam = false; script = null; roamScript = null; } // grab him out of a roam
     action?.stop(k, ctx);
     action = null;
   }
@@ -134,9 +360,10 @@ addEventListener('mousedown', (e) => {
   vel = { x: 0, y: 0 };
   document.body.style.cursor = 'grabbing';
 });
-addEventListener('mouseup', () => {
+addEventListener('mouseup', (e) => {
   if (!drag) return;
   if (drag.moved) {
+    landAt(e.clientX, e.clientY);
     mode = 'fall';
     const cap = 2500; // px/s, so a flick doesn't launch him off the screen
     vel = { x: Math.max(-cap, Math.min(cap, vel.x)), y: Math.max(-cap, Math.min(cap, vel.y)) };
@@ -156,6 +383,9 @@ renderer.setAnimationLoop(() => {
     k.face(0);
     k.look(0, -0.15);
     k.held(t, dt);
+  } else if (mode === 'fall' && vel.y < 0 && p.y > ctx.ground + 1.2 * ctx.SIZE) {
+    mode = 'act'; // falling from a height: out comes the parachute (he only drops without one in the ninja suit)
+    run(roamer.drop(vel.x));
   } else if (mode === 'fall') {
     vel.y -= 2600 * dt; // gravity, px/sВІ
     p.x += vel.x * dt;
@@ -171,22 +401,64 @@ renderer.setAnimationLoop(() => {
       mode = 'act';
       next();
     }
-  } else if (ctx.busy) { // Claude is working: desk and chair appear, he sits down and types
+  } else if (script || (!gone && (bye || (flagTodo && !home) || (ctx.roam && !home)))) { // at home in a window, the screensaver leaves him be
+    if (!script) {
+      if (bye) run(leaving());
+      else if (flagTodo && !home) run(flagScene());
+      else { run(roamer.roam()); roamScript = script; }
+    }
+    if (script.next(dt).done) {
+      const wasRoam = script === roamScript;
+      script = null;
+      if (wasRoam) roamScript = null;
+      if (battleQueued && !bye) { battleQueued = false; run(roamer.battle()); }
+      else next();
+    }
+  } else if (gone) {
+    bye?.(); // behind the door until called, or for good when quitting
+  } else if (ctx.busy) { // the AI is working: desk and chair appear, he sits down and types
     p.y = ctx.ground;
     k.face(0);
     k.look(0, 0.3);
     k.breathe(Math.sin(t * 1.4));
     k.work(t, dt);
+  } else if (approach !== null) { // walking over to the pointer
+    const d = Math.min(SPEED * ctx.SIZE * dt, Math.abs(approach - p.x)), dir = Math.sign(approach - p.x);
+    p.x += dir * d;
+    approachPhase += (d / (STEP * ctx.SIZE)) * Math.PI;
+    k.face(dir);
+    k.walk(approachPhase, dt);
+    if (Math.abs(approach - p.x) < 1) { approach = null; next(); }
   } else if (action) {
     if (action.update(k, dt, ctx)) next();
   } else {
     k.stand(t, dt);
+  }
+  // typing a command into his terminal: fingers tap on an invisible keyboard for a few seconds
+  if (t < typingUntil && mode === 'act' && !script && !ctx.busy && !gone) {
+    const tap = (ph) => 0.15 * Math.max(0, Math.sin(t * 17 + ph));
+    k.pose({ aL: -1.15, aR: -1.15, eL: -0.9 + tap(0), eR: -0.9 + tap(1.7), oL: 0.05, oR: 0.05, lean: 0.1 }, dt);
+  }
+  // he keeps an eye on the pointer, and when it's more than two of him away for half a second he walks over (along his floor)
+  if (pointer && mode === 'act' && !script && !ctx.busy && !gone) {
+    const S = ctx.SIZE, dx = pointer.x - p.x;
+    k.gaze(Math.atan2(dx, 4 * S), -0.8 * Math.atan2(pointer.y - (p.y + 1.25 * S), 4 * S));
+    const target = Math.max(ctx.x1 + 0.3 * S, Math.min(ctx.x2 - 0.3 * S, pointer.x - Math.sign(dx) * S)); // a step short of it
+    if (approach !== null) approach = target; // on his way: heads for wherever the pointer is now
+    farFor = approach === null && Math.abs(dx) > 2 * S ? farFor + dt : 0;
+    if (farFor > 0.5) {
+      action?.stop(k, ctx);
+      action = null;
+      approach = target;
+      approachPhase = farFor = 0;
+    }
   }
   if (!tag.hidden) {
     const r = rect();
     tag.style.left = `${(r.left + r.right) / 2}px`;
     tag.style.top = `${r.top - 6}px`;
   }
+  if (flag.root.visible) flag.wave(t);
   k.talk(talking ? t : null);
   key.position.copy(p).add(KEY_DIR); // light follows him
   renderer.render(scene, camera);

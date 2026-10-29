@@ -8,7 +8,8 @@ function rms(x) {
   return Math.sqrt(s / x.length);
 }
 
-export async function startWake(send) {
+// onSpeech(true) when someone starts talking, onSpeech(false) when that turned out too short to send
+export async function startWake(send, onSpeech = () => {}) {
   let stream;
   try {
     // no noise suppression: it treats soft consonants like the "Шп" in a name as noise and mutes them; keep gain control
@@ -27,7 +28,7 @@ export async function startWake(send) {
     if (!phrase) {
       pre.push(x); // keep ~0.5 s before the onset so the first syllable isn't clipped
       if (pre.length > 2) pre.shift();
-      if (loud) { phrase = [...pre]; quiet = 0; }
+      if (loud) { phrase = [...pre]; quiet = 0; onSpeech(true); }
       return;
     }
     phrase.push(x);
@@ -37,7 +38,7 @@ export async function startWake(send) {
         const all = new Float32Array(phrase.length * BLOCK);
         phrase.forEach((c, i) => all.set(c, i * BLOCK));
         send(all);
-      }
+      } else onSpeech(false);
       phrase = null;
       pre = [];
     }

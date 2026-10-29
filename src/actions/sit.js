@@ -1,4 +1,4 @@
-// Sit on the taskbar edge and swing the legs for a while.
+// Pull up the chair, sit and swing the legs for a while.
 export default {
   name: 'sit',
   weight: 1,

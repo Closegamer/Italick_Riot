@@ -18,9 +18,6 @@
   .bot { align-self: flex-start; background: var(--panel); border-bottom-left-radius: 4px }
   .error { color: #ff9b9b }
   .tool { align-self: flex-start; color: var(--muted); font: 12px/1.4 Consolas, monospace; overflow-wrap: anywhere }
-  .ask { align-self: stretch; border: 1px solid var(--accent); background: #33291f; border-radius: 10px; padding: 8px 10px }
-  .ask ul { margin: 6px 0; padding-left: 18px; font: 12px/1.4 Consolas, monospace; overflow-wrap: anywhere }
-  .ask div { display: flex; gap: 6px }
   #status { min-height: 18px; padding: 0 12px 4px; color: var(--muted); font-size: 12px }
   footer { display: flex; gap: 6px; padding: 8px; background: var(--panel); border-top: 1px solid var(--line) }
   textarea { flex: 1; height: 58px; resize: none; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit }
@@ -32,7 +29,7 @@
 </style>
 </head>
 <body>
-<header><input id="name" maxlength="24" title="Click to rename" aria-label="Assistant name" spellcheck="false"><button id="new" title="Start a new conversation">New</button><button id="close" title="Hide" aria-label="Hide">✕</button></header>
+<header><input id="name" maxlength="24" title="Click to rename" aria-label="Assistant name" spellcheck="false"><button id="new" title="Clear the chat (he still remembers everything)">Clear</button><button id="close" title="Hide" aria-label="Hide">✕</button></header>
 <div id="log" aria-live="polite"></div>
 <div id="status"></div>
 <footer>
@@ -70,9 +67,13 @@
   const greet = () => add('msg bot', `Hi! I'm ${name}. Ask me a question, or give me a task on this computer.`);
   greet();
 
-  function send() {
+  // he answers in the language of the request: Whisper's guess when spoken, the script when typed
+  let replyLang = 'en', voiced = false;
+  function send(lang) {
     const text = $('input').value.trim();
     if (!text || busy) return;
+    voiced = !!lang; // asked by voice -> answered by voice, even with "Speak replies" off
+    replyLang = lang || (/[а-яё]/i.test(text) ? 'ru' : 'en');
     finish(false);
     speechSynthesis.cancel();
     add('msg me', text);
@@ -131,20 +132,46 @@
   }
   $('mic').onclick = () => (rec ? finish(true) : listen(true));
 
-  // voice out: read his replies aloud with a Windows voice in the reply's language
+  // voice out: read his replies aloud with a Windows voice in the language he was asked in
   let speak = new URLSearchParams(location.search).get('speak') === '1';
+  // the voice list loads asynchronously: until it's there an utterance gets no voice and Windows' default (possibly a
+  // Russian one) reads it, so replies wait for the list
+  let voiceList = speechSynthesis.getVoices();
+  speechSynthesis.addEventListener('voiceschanged', () => { voiceList = speechSynthesis.getVoices(); });
+  // he's a guy: always the same male voice per language (David for English, Pavel for Russian here), else any in it
+  const MALE = /david|mark|guy|andrew|brian|christopher|eric|roger|steffan|pavel|dmitry|male/i;
+  function voiceFor(lang) {
+    const vs = voiceList.filter((v) => v.lang.toLowerCase().startsWith(lang));
+    return vs.find((v) => MALE.test(v.name) && !/female/i.test(v.name)) ?? vs[0] ?? null;
+  }
+  // splits text into runs of Russian and of Latin-script words, each read by a voice of its own language: one Russian
+  // word in an English reply no longer makes the Russian voice read all of it (that was the heavy accent)
+  function runs(text) {
+    const out = [];
+    for (const word of text.split(/(\s+)/)) {
+      const lang = /[а-яё]/i.test(word) ? 'ru' : /[a-z]/i.test(word) ? (replyLang === 'ru' ? 'en' : replyLang) : null;
+      const last = out[out.length - 1];
+      if (last && (!lang || lang === last[0])) last[1] += word; // spaces, numbers, punctuation stay with their run
+      else out.push([lang ?? (replyLang === 'ru' ? 'ru' : 'en'), word]);
+    }
+    return out.filter(([, part]) => part.trim());
+  }
   function say(text) {
-    if (!speak) return;
+    if (!speak && !voiced) return;
     // read words only: no markdown symbols, no emoji (with their joiners and variation selectors)
     const words = text.replace(/[`*_#>]/g, '').replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f]/gu, '').trim();
     if (!words) return;
-    const u = new SpeechSynthesisUtterance(words);
-    u.lang = /[а-яё]/i.test(text) ? 'ru-RU' : 'en-US';
-    u.voice = speechSynthesis.getVoices().find((v) => v.lang.startsWith(u.lang.slice(0, 2))) ?? null;
-    // his mouth moves while any reply is being spoken (replies can queue up)
-    u.onstart = () => bridge.send('talking', true);
-    u.onend = u.onerror = () => setTimeout(() => bridge.send('talking', speechSynthesis.speaking), 50);
-    speechSynthesis.speak(u);
+    if (!voiceList.length) return void speechSynthesis.addEventListener('voiceschanged', () => say(text), { once: true });
+    for (const [lang, part] of runs(words)) {
+      const u = new SpeechSynthesisUtterance(part);
+      u.voice = voiceFor(lang);
+      u.lang = u.voice?.lang ?? lang;
+      if (!u.voice) $('status').textContent = `No ${lang} voice installed: add one in Windows Settings > Time & language > Speech.`;
+      // his mouth moves while any reply is being spoken (replies and runs queue up)
+      u.onstart = () => bridge.send('talking', true);
+      u.onend = u.onerror = () => setTimeout(() => bridge.send('talking', speechSynthesis.speaking), 50);
+      speechSynthesis.speak(u);
+    }
   }
 
   $('close').onclick = () => bridge.send('hide-chat');
@@ -155,34 +182,17 @@
     else bridge.send('hide-chat');
   });
 
-  // Claude needs approval for actions the current permission mode doesn't allow
-  function askCard(items) {
-    const card = add('ask', 'May I do this?');
-    const list = document.createElement('ul');
-    for (const i of items) list.append(Object.assign(document.createElement('li'), { textContent: i.text }));
-    const row = document.createElement('div');
-    const yes = Object.assign(document.createElement('button'), { className: 'primary', textContent: 'Allow' });
-    const no = Object.assign(document.createElement('button'), { textContent: 'Deny' });
-    const done = (note) => { yes.disabled = no.disabled = true; add('tool', note); };
-    yes.onclick = () => { done('✓ allowed'); bridge.send('allow', items.map((i) => i.rule)); };
-    no.onclick = () => done('✗ denied');
-    row.append(yes, no);
-    card.append(list, row);
-    yes.focus();
-  }
-
-  bridge.on('claude', (m) => {
-    if (m.type === 'text') { add('msg bot', m.text); say(m.text); }
+  bridge.on('assistant', (m) => {
+    if (m.type === 'text') { add('msg bot', m.text); if (!m.silent) say(m.text); } // silent: not read aloud
     if (m.type === 'tool') add('tool', '▸ ' + m.text);
     if (m.type === 'error') add('msg bot error', m.text);
-    if (m.type === 'ask') askCard(m.items);
     if (m.type === 'reset') { log.innerHTML = ''; greet(); }
     if (m.type === 'rename') { nameBox.focus(); nameBox.select(); }
     if (m.type === 'listen') listen(true);
     if (m.type === 'status') $('status').textContent = m.text;
     if (m.type === 'heard') {
       $('status').textContent = m.text ? '' : "Sorry, I didn't catch that.";
-      if (m.text) { $('input').value = m.text; send(); }
+      if (m.text) { $('input').value = m.text; send(m.lang || 'en'); }
     }
     if (m.type === 'speak') { speak = m.on; if (!speak) speechSynthesis.cancel(); }
     if (m.type === 'busy') {

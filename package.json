@@ -1,11 +1,15 @@
 {
   "name": "desktop-assistant",
-  "version": "0.1.0",
-  "description": "A 3D desktop character that walks around your screen and gets things done with Claude Code",
+  "version": "1.0.0",
+  "description": "A 3D desktop character that walks around your screen and gets things done with DeepSeek — writtenBy('Closegamer', 2026) · closegamer@mail.ru",
+  "author": "Closegamer <closegamer@mail.ru>",
   "main": "main.js",
   "private": true,
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "start:italic": "electron italic-main.js",
+    "build:italic": "node tools/build-italic.mjs",
+    "bundle:italic": "node tools/bundle-italic.mjs"
   },
   "dependencies": {
     "electron": "^45.1.0",
