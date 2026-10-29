@@ -1,7 +1,7 @@
 {
   "name": "italick",
-  "version": "1.4.0",
-  "description": "Italick 1.4 - a 3D Windows desktop companion: a flag, window roaming, Anthropic statue battles, helicopter food delivery with a burger and a drink, his own bed for naps, and two policemen who stop by to check his passport. writtenBy('Closegamer', 2026) · closegamer@mail.ru",
+  "version": "1.5.0",
+  "description": "Italick 1.5 - a 3D Windows desktop companion: a flag, window roaming, Anthropic statue battles, helicopter food delivery with a burger and a drink, his own bed for naps, two policemen who stop by to check his passport, and a tray menu to summon the policemen or order food. writtenBy('Closegamer', 2026) · closegamer@mail.ru",
   "author": "Closegamer <closegamer@mail.ru>",
   "main": "italick-main.js",
   "private": true,

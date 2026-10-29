@@ -84,14 +84,34 @@ export function createCop(variant = 0) {
     head.rotation.y = 0.1 * Math.sin(t * 1.3 + variant);
     turn.rotation.y = ease(turn.rotation.y, facing, dt);
   }
-  function point(dt) {
-    // both arms forward, i.e. towards the flag while the body faces it
-    for (const g of [arms.L, arms.R]) {
-      g.rotation.x = ease(g.rotation.x, -1.8, dt);
-      g.rotation.z = ease(g.rotation.z, 0, dt);
-    }
+  function pointOne(side, dt) {
+    // one arm out towards the flag; the other stays down by his side
+    const arm = side === 'L' ? arms.L : arms.R, other = side === 'L' ? arms.R : arms.L;
+    arm.rotation.x = ease(arm.rotation.x, -1.75, dt);
+    arm.rotation.z = ease(arm.rotation.z, 0, dt);
+    other.rotation.x = ease(other.rotation.x, 0.05, dt);
+    other.rotation.z = ease(other.rotation.z, 0, dt);
     head.rotation.x = ease(head.rotation.x, 0.02, dt);
     head.rotation.y = ease(head.rotation.y, -0.35, dt);
+    turn.rotation.y = ease(turn.rotation.y, facing, dt);
+  }
+  function handsBehindBack(dt) {
+    // hands clasped behind his back, the way a patrolman watches something: the one who is not pointing
+    arms.L.rotation.x = ease(arms.L.rotation.x, 0.6, dt);
+    arms.R.rotation.x = ease(arms.R.rotation.x, 0.6, dt);
+    arms.L.rotation.z = ease(arms.L.rotation.z, -0.18, dt);
+    arms.R.rotation.z = ease(arms.R.rotation.z, 0.18, dt);
+    head.rotation.x = ease(head.rotation.x, 0.03, dt);
+    head.rotation.y = ease(head.rotation.y, -0.3, dt);
+    turn.rotation.y = ease(turn.rotation.y, facing, dt);
+  }
+  function listen(t, dt) {
+    // the other one follows the speaker with little nods and keeps his arms down
+    head.rotation.x = ease(head.rotation.x, 0.06 + 0.05 * Math.sin(t * 2.4 + variant), dt);
+    head.rotation.y = 0.06 * Math.sin(t * 1.7 + variant);
+    const e = 1 - Math.exp(-dt * 8);
+    for (const g of [arms.L, arms.R]) { g.rotation.x += (0 - g.rotation.x) * e; g.rotation.z += (0 - g.rotation.z) * e; }
+    body.position.y += (0 - body.position.y) * e;
     turn.rotation.y = ease(turn.rotation.y, facing, dt);
   }
   function talk(t, dt) {
@@ -121,7 +141,7 @@ export function createCop(variant = 0) {
   }
 
   return {
-    root, face, walk, stand, read, point, talk, laugh,
+    root, face, walk, stand, read, pointOne, handsBehindBack, listen, talk, laugh,
     place: (x, y, scale, dir) => {
       root.position.set(x, y, 0);
       root.scale.setScalar(scale);

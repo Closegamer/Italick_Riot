@@ -109,6 +109,21 @@ function food() {
   }, foodDelay());
 }
 
+// tray: bring the policemen right now. If he is working at the desk or another scene is running, he stands up and the
+// call is retried briefly until he is free.
+function callPolice() {
+  if (quitting) return;
+  let tries = 0;
+  const tick = async () => {
+    if (quitting) return;
+    const ok = await run('police()');
+    if (ok || quitting || tries++ >= 15) return;
+    if (tries === 1) run('setBusy(false)'); // leave the desk so the visit is not skipped
+    later(tick, 2000);
+  };
+  tick();
+}
+
 async function goodbye() {
   if (quitting) return app.quit(); // a second Quit doesn't wait
   quitting = true;
@@ -193,6 +208,7 @@ if (primary) app.whenReady().then(() => {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: `Italick ${version} — from Russia with code`, enabled: false },
     { type: 'separator' },
+    { label: 'Call police', click: callPolice },
     { label: 'Order food', click: () => run('foodDelivery()') },
     { type: 'separator' },
     { label: 'Quit', click: goodbye },

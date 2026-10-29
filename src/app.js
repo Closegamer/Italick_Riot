@@ -340,37 +340,74 @@ function* policeScene() {
   const stopA = FLAG_X + flag.width + 0.7 * S;
   const stopB = stopA + 0.74 * S;
   const meetX = Math.min(W - 1.2 * S, stopB + 1.3 * S);
+  const chatX = Math.min(W - 0.7 * S, meetX + 2.4 * S); // where they stop on the way in to talk it over
+  const canChat = chatX - meetX > 1.1 * S;
   copA.place(W + 0.7 * S, ctx.ground, 0.9 * S, -1);
   copB.place(W + 1.6 * S, ctx.ground, 0.86 * S, -1);
 
   let phA = 0, phB = 0, phI = 0, nextStep = 0;
-  while ((copA.x() > stopA || copB.x() > stopB || Math.abs(p.x - meetX) > 2) && !bye) {
-    const dt = yield;
-    if (copA.x() > stopA) {
-      const d = Math.min(1.0 * S * dt, copA.x() - stopA);
-      copA.root.position.x -= d;
-      phA += (d / (0.35 * S)) * Math.PI;
-      copA.walk(phA, dt);
-    } else copA.stand(t, dt);
-    if (copB.x() > stopB) {
-      const d = Math.min(1.0 * S * dt, copB.x() - stopB);
-      copB.root.position.x -= d;
-      phB += (d / (0.35 * S)) * Math.PI;
-      copB.walk(phB, dt);
-    } else copB.stand(t, dt);
-    if (Math.abs(p.x - meetX) > 2) {
-      const d = Math.min(1.6 * SPEED * S * dt, Math.abs(meetX - p.x));
-      p.x += Math.sign(meetX - p.x) * d;
-      phI += (d / (STEP * S)) * Math.PI;
-      k.face(Math.sign(meetX - p.x));
-      k.look(0, 0);
-      k.walk(phI, dt);
-    } else {
-      k.face(-1);
-      k.stand(t, dt);
+
+  // everyone steps in: the cops walk left to their targets, Italick walks to the meeting point and, once there, keeps
+  // his face on whichever policeman is nearest - he never turns his back on them while they are coming
+  function* walkIn(targetA, targetB) {
+    while (!bye) {
+      const dt = yield;
+      let moving = false;
+      if (copA.x() > targetA) {
+        const d = Math.min(1.0 * S * dt, copA.x() - targetA);
+        copA.root.position.x -= d;
+        phA += (d / (0.35 * S)) * Math.PI;
+        copA.walk(phA, dt);
+        moving = true;
+      } else copA.stand(t, dt);
+      if (copB.x() > targetB) {
+        const d = Math.min(1.0 * S * dt, copB.x() - targetB);
+        copB.root.position.x -= d;
+        phB += (d / (0.35 * S)) * Math.PI;
+        copB.walk(phB, dt);
+        moving = true;
+      } else copB.stand(t, dt);
+      if (Math.abs(p.x - meetX) > 2) {
+        const d = Math.min(1.6 * SPEED * S * dt, Math.abs(meetX - p.x));
+        p.x += Math.sign(meetX - p.x) * d;
+        phI += (d / (STEP * S)) * Math.PI;
+        k.face(Math.sign(meetX - p.x) || 1);
+        k.look(0, 0);
+        k.walk(phI, dt);
+        moving = true;
+      } else {
+        k.face(Math.min(copA.x(), copB.x()) > p.x ? 1 : -1); // he watches them, face to face
+        k.look(0, 0);
+        k.stand(t, dt);
+      }
+      if (t > nextStep) { sfx.step(); nextStep = t + 0.38; }
+      if (!moving) return;
     }
-    if (t > nextStep) { sfx.step(); nextStep = t + 0.38; }
   }
+
+  // on the way in the two of them stop and talk it over between themselves, so the visit starts before they reach Italick
+  if (canChat) {
+    yield* walkIn(chatX, chatX + 0.74 * S);
+    if (bye) { copA.hide(); copB.hide(); return; }
+    copA.face(1); // turned to each other
+    copB.face(-1);
+    yield* during(0.5, (a, dt) => { copA.stand(t, dt); copB.stand(t, dt); k.face(1); k.stand(t, dt); });
+    const lines = 2 + Math.floor(Math.random() * 3); // 2-4 lines, they take turns
+    for (let i = 0; i < lines && !bye; i++) {
+      const speaker = i % 2 === 0 ? copA : copB, listener = speaker === copA ? copB : copA;
+      sfx.mumble();
+      yield* during(0.9 + Math.random() * 0.9, (a, dt) => {
+        speaker.talk(t, dt);
+        listener.listen(t, dt);
+        k.face(1);
+        k.stand(t, dt);
+      });
+    }
+    copA.face(-1); // back to the walking direction
+    copB.face(-1);
+  }
+
+  yield* walkIn(stopA, stopB);
   if (bye) { copA.hide(); copB.hide(); return; }
 
   copA.face(1);
@@ -397,13 +434,14 @@ function* policeScene() {
     if (a > 0.55 && !said) { sfx.mumble(); said = true; }
   });
 
-  // they walk up to the flag, point at it with both hands and discuss it
+  // they walk up to the flag; Italick puts the passport down and watches them from a couple of steps away
   copA.face(-1);
   copB.face(-1);
   const flagStopA = FLAG_X + flag.width + 0.15 * S;
   const flagStopB = flagStopA + 0.74 * S;
   const startAx = copA.x(), startBx = copB.x();
   phA = phB = 0;
+  let tuckedAway = false;
   yield* during(1.5, (a, dt) => {
     const e = ease(a);
     copA.root.position.x = startAx + (flagStopA - startAx) * e;
@@ -411,41 +449,51 @@ function* policeScene() {
     phA += (1.2 * S * dt / (0.35 * S)) * Math.PI;
     copA.walk(phA, dt);
     copB.walk(phA, dt);
-    holdPassport(dt);
+    // he drops his arm and puts the passport away in the first half second, and the passport goes down with the hand
+    const low = Math.min(1, a / 0.35);
+    k.pose({ aR: -1.45 * (1 - low), eR: -0.4 * (1 - low), oR: 0.15 * (1 - low), aL: 0.08, eL: -0.2 }, dt);
+    if (!tuckedAway) {
+      k.hand('R', hand);
+      passport.set(hand.x + 0.02 * S, hand.y + 0.05 * S, hand.z + 0.22 * S, S * 1.1, -0.08);
+      if (low >= 1) { passport.hide(); tuckedAway = true; }
+    }
   });
+  passport.hide();
+
+  // only one of them points at the flag, with one arm; the other one just stands there with his hands behind his back.
+  // The argument lasts a different random time every visit.
   sfx.mumble();
-  yield* during(4.0, (a, dt) => {
-    holdPassport(dt);
-    copA.point(dt);
-    copB.point(dt); // both hands towards the flag
+  yield* during(2.6 + Math.random() * 2.4, (a, dt) => {
+    copA.pointOne('R', dt);
+    copB.handsBehindBack(dt);
+    k.face(-1);
+    k.look(-0.25, 0.08);
+    k.stand(t, dt);
   });
 
-  // they turn to each other and talk it over
+  // they turn to each other and talk it over, taking turns, for a random number of lines
   copA.face(1);
   copB.face(-1);
-  yield* during(0.7, (a, dt) => {
-    holdPassport(dt);
-    copA.stand(t, dt);
-    copB.stand(t, dt);
-  });
-  sfx.mumble();
-  let nextTalk = t + 1.2;
-  yield* during(2.6, (a, dt) => {
-    holdPassport(dt);
-    copA.talk(t, dt);
-    copB.talk(t + 0.4, dt);
-    if (t > nextTalk) { sfx.mumble(); nextTalk = t + 1.2; }
-  });
+  yield* during(0.6, (a, dt) => { copA.stand(t, dt); copB.stand(t, dt); k.stand(t, dt); });
+  const rounds = 2 + Math.floor(Math.random() * 3); // 2-4 exchanges
+  for (let i = 0; i < rounds && !bye; i++) {
+    const speaker = i % 2 === 0 ? copA : copB, listener = speaker === copA ? copB : copA;
+    sfx.mumble();
+    yield* during(1.0 + Math.random() * 1.1, (a, dt) => {
+      speaker.talk(t, dt);
+      listener.listen(t, dt);
+      k.stand(t, dt);
+    });
+  }
 
   // a good laugh together, then they leave
   sfx.laugh();
   yield* during(1.0, (a, dt) => {
-    holdPassport(dt);
     copA.laugh(t, dt);
     copB.laugh(t + 0.3, dt);
+    k.stand(t, dt);
   });
 
-  passport.hide();
   yield* during(0.4, (a, dt) => {
     k.pose({ aR: 0, eR: -0.15, aL: 0, eL: -0.15 }, dt);
     copA.stand(t, dt);

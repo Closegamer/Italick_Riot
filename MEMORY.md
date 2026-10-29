@@ -12,8 +12,8 @@ helicopter, fights rubber Anthropic statues, and is occasionally stopped by two 
 - Repository: https://github.com/Closegamer/Italick_Riot
 - Author / developer nick: **Closegamer** — `closegamer@mail.ru`
 - Flag signature: **Italick, Russian programmer**
-- Current version: **1.4.0** (release tag `v1.4`)
-- Latest download: `Italick-1.4-windows.zip`
+- Current version: **1.5.0** (release tag `v1.5`)
+- Latest download: `Italick-1.5-windows.zip`
 - Important spelling: the character/app is **Italick**, not “Italic”. Keep it that way everywhere.
 - Windows 10/11 x64 only for now.
 
@@ -59,7 +59,8 @@ helicopter, fights rubber Anthropic statues, and is occasionally stopped by two 
 - After `ITALICK_START_MS` (default 12 s): roam for 55 s → sit at desk and work for 22 s → repeat.
 - Statue battles: every 45 s.
 - Police visits: **random 3–8 minutes apart**.
-- Food deliveries: **random 4–9 minutes apart**; the tray menu also has **Order food**.
+- Food deliveries: **random 4–9 minutes apart**; the tray menu also has **Order food**, and **Call police** summons the
+  policemen on demand.
 - Sleep: after 5 minutes of no keyboard/mouse (`powerMonitor.getSystemIdleTime`), a bed appears; any input wakes him.
 - Timers for the show/battles/police/food are cleared while sleeping and restarted on wake.
 
@@ -71,10 +72,15 @@ helicopter, fights rubber Anthropic statues, and is occasionally stopped by two 
 - Karate fights: punches and kicks; body/face square to the statue.
 
 ### Police visits
-- Cops enter from the right, stop near the flag, read the passport, walk up to the flag, point with both hands, turn to
-  each other and discuss, laugh, then leave past the left edge.
+- Cops enter from the right, stop half-way and talk it over between themselves (2–4 lines, taking turns) before they
+  reach Italick; his face follows them the whole way in, so he never turns his back while they are coming.
+- They read the passport, then walk to the flag: **only the nearer one points at it, with one arm**, while the other
+  stands with his hands behind his back. The pointing lasts a random 2.6–5 s.
+- They turn to each other and talk it over, taking turns, 2–4 random-length lines, then laugh and leave past the left edge.
 - Footsteps, murmurs and laughs are synthesized.
 - Visit is skipped while asleep or working at the desk; it retries on the next random interval.
+- Tray item **Call police** brings them immediately: if he is working at the desk, main sends `setBusy(false)` and retries
+  the call every 2 s (up to 15 times) until no other scene is playing.
 
 ### Food delivery (`foodScene` in `src/app.js`)
 - A **FOOD** helicopter flies in from the right and hovers over a drop point beside him.
@@ -162,15 +168,16 @@ npm start
 - While roaming, `script === roamScript`; battles/police/food queue and run after the roam cleanup, so props don’t remain.
 - Sleeping clears demo timers; `show()`, `battles()`, `police()` and `food()` are restarted on wake.
 - Do not call `win.webContents` without `win && !win.isDestroyed()` checks in timers.
-- The police scene is intentionally long (~25 s): entry, reading, flag discussion, talk, laugh, exit.
+- The police scene is intentionally long (~30-40 s): entry with a chat between the cops, reading, flag discussion, talk, laugh, exit.
 - The full AI assistant is gone; `%APPDATA%\desktop-assistant` and `voice/` belong to old versions only.
 - Old “Italic” cache folders may still exist on users’ machines; uninstall docs list them.
 
 ## Current state
 
-- Latest feature work: helicopter food delivery — a **FOOD** helicopter drops a parachuted crate with a burger and a drink,
-  Italick eats, drinks, and throws the wrapper into a bin that appears; three beeps mark the end.
-- Latest release: **v1.4** (`Italick-1.4-windows.zip`).
-- Recent commits: `Bump to 1.4 and add helicopter food delivery`.
+- Latest feature work: police visit rework — the two cops talk to each other on the way in, Italick turns to face them,
+  only one of them points at the flag (one arm) while the other stands with his hands behind his back, and their
+  discussion lasts a random time. Previous release added the helicopter food delivery with a burger, a drink and a bin.
+- Latest release: **v1.5** (`Italick-1.5-windows.zip`).
+- Recent commits: `Add tray Call police menu, rework the police visit, bump to 1.5`.
 
 _Last updated: 2026-10-30._
