@@ -26,6 +26,8 @@ CONTROLS
 - Hover the mouse over him, then drag to move him. Release to drop him
   or throw him.
 - He ignores the mouse during a battle or a door/flag scene.
+- After five minutes without keyboard or mouse activity he goes to sleep
+  in a bed that appears nearby. Move the mouse or press a key to wake him.
 - Everything else is automatic: roaming, climbing, parachuting, working,
   planting the flag, and fights.
 

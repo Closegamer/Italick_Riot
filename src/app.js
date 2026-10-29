@@ -3,6 +3,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createGeek } from './geek.js';
 import { createDoor } from './door.js';
 import { createFlag, GRIP } from './flag.js';
+import { createBed } from './bed.js';
 import { createRoam } from './roam.js';
 import * as sfx from './sfx.js';
 
@@ -61,7 +62,8 @@ scene.add(k.root);
 key.target = k.root;
 const door = createDoor();
 const flag = createFlag();
-scene.add(door.root, flag.root);
+const bed = createBed();
+scene.add(door.root, flag.root, bed.root);
 
 function setSize(px) {
   ctx.SIZE = px;
@@ -218,6 +220,73 @@ window.battle = () => {
 let bye = null;
 window.leaveForQuit = () => new Promise((resolve) => { bye = resolve; ctx.roam = false; });
 window.setEdges = roamer.setEdges;
+
+// ---------- sleep: after five minutes without user input a bed appears and he goes to sleep in it ----------
+let wakeRequested = false;
+function* sleepScene() {
+  wakeRequested = false;
+  ctx.roam = false;
+  ctx.busy = false;
+  roamer.cancel(); // put away a ladder, rope or ninja suit left by a roam
+  const S = ctx.SIZE, p = k.root.position;
+  p.y = ctx.ground;
+  p.x = Math.max(ctx.x1 + S, Math.min(ctx.x2 - S, p.x));
+  const dir = p.x < W / 2 ? 1 : -1; // the bed goes on the roomier side of him
+  const bx = Math.max(1.35 * S, Math.min(W - 1.35 * S, p.x + dir * 1.1 * S));
+  bed.place(bx, ctx.ground, 0, S, dir);
+  bed.set(0.001);
+  sfx.cloth();
+  yield* during(0.5, (a, dt) => { bed.set(pop(a)); k.face(dir); k.look(0, 0); k.stand(t, dt); });
+
+  const near = bx - dir * (bed.length / 2 - 0.15) * S; // he stands by the foot of the bed
+  yield* walkTo(near, () => {}, 1.5);
+
+  const lieX = bx - dir * 0.72 * S, lieY = ctx.ground + (bed.top + 0.16) * S;
+  const rest = { tL: 0.03, tR: 0.03, kL: 0.05, kR: 0.05, aL: 0.12, eL: -0.5, aR: 0.12, eR: -0.5, lean: 0, twist: 0 };
+  yield* during(0.9, (a, dt) => {
+    const e = ease(a);
+    p.x = near + (lieX - near) * e;
+    p.y = ctx.ground + (lieY - ctx.ground) * e;
+    k.root.rotation.z = -dir * (Math.PI / 2) * e; // lying down, head towards the pillow
+    k.face(0); // on his back, face to the viewer
+    k.pose(rest, dt);
+    k.breathe(Math.sin(t * 1.1));
+  });
+
+  sfx.snore();
+  let nextSnore = t + 3.5 + Math.random() * 2;
+  while (!wakeRequested && !bye) {
+    const dt = yield;
+    k.face(0);
+    k.pose(rest, dt);
+    k.breathe(Math.sin(t * 1.1));
+    bed.animate(t);
+    if (t > nextSnore) { sfx.snore(); nextSnore = t + 3.5 + Math.random() * 2; }
+  }
+
+  // the user is back: stand up and let the bed vanish
+  sfx.cloth();
+  yield* during(0.8, (a, dt) => {
+    const e = ease(a);
+    k.root.rotation.z = -dir * (Math.PI / 2) * (1 - e);
+    p.y = lieY + (ctx.ground - lieY) * e;
+    k.face(0);
+    k.pose({ tL: 0, tR: 0, kL: 0, kR: 0, aL: 0, eL: -0.15, aR: 0, eR: -0.15 }, dt);
+    k.stand(t, dt);
+    bed.set(1 - e);
+  });
+  k.root.rotation.z = 0;
+  p.y = ctx.ground;
+  bed.hide();
+  wakeRequested = false;
+}
+
+window.sleep = () => {
+  if (gone || bye || (script && script !== roamScript)) return false;
+  run(sleepScene());
+  return true;
+};
+window.wakeUp = () => { wakeRequested = true; };
 
 // Home: drop him into a terminal window and he lives there - on its bottom edge, within its width, carried along when
 // the window moves. Closing or minimizing it sends him back down to the taskbar.

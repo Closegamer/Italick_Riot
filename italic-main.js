@@ -2,7 +2,7 @@
 // the screen, plants it, and then just lives there: climbs windows by rope and ladder, parachutes down, sits at his desk
 // and works on his laptop. Everything visual comes from the same scene code as the full assistant (src/app.js).
 // writtenBy('Closegamer', 2026) · closegamer@mail.ru
-const { app, BrowserWindow, screen, Tray, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, screen, Tray, Menu, ipcMain, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const readline = require('readline');
@@ -35,7 +35,8 @@ const ACTIONS = fs.readdirSync(path.join(__dirname, 'src', 'actions')).filter((f
 const preload = path.join(__dirname, 'preload.js');
 
 let win, tray, lister = null, quitting = false;
-let pointerTimer = null, keepTimer = null;
+let pointerTimer = null, keepTimer = null, idleTimer = null;
+let sleeping = false;
 const timers = [];
 
 const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; };
@@ -65,6 +66,7 @@ function startLister() {
 const START_MS = Number(process.env.ITALIC_START_MS) || 12000;
 const ROAM_MS = Number(process.env.ITALIC_ROAM_MS) || 55000, WORK_MS = Number(process.env.ITALIC_WORK_MS) || 22000;
 const BATTLE_MS = Number(process.env.ITALIC_BATTLE_MS) || 45000;
+const IDLE_SLEEP_MS = Number(process.env.ITALIC_IDLE_MS) || 5 * 60 * 1000; // no input -> bed
 function show() {
   if (quitting) return;
   run('setRoam(true)');
@@ -122,6 +124,25 @@ if (primary) app.whenReady().then(() => {
     win.moveTop();
   }, 1500);
 
+  // five minutes without keyboard or mouse: bring a bed and go to sleep; any input wakes him
+  idleTimer = setInterval(() => {
+    if (quitting || !win || win.isDestroyed()) return;
+    const idle = powerMonitor.getSystemIdleTime() * 1000;
+    if (!sleeping && idle >= IDLE_SLEEP_MS) {
+      win.webContents.executeJavaScript('sleep()').then((ok) => {
+        if (!ok || quitting) return;
+        sleeping = true;
+        timers.forEach(clearTimeout); // pause the show and the battles
+        timers.length = 0;
+      }).catch(() => {});
+    } else if (sleeping && idle < IDLE_SLEEP_MS) {
+      sleeping = false;
+      run('wakeUp()');
+      show(); // resume the demo
+      battles();
+    }
+  }, 2000);
+
   win.webContents.once('did-finish-load', startLister);
   win.webContents.once('did-finish-load', () => {
     later(() => run(`setFlag(${JSON.stringify(FLAG)})`), 900); // flagTodo: after the door, he carries it to the left edge
@@ -151,6 +172,7 @@ if (primary) app.whenReady().then(() => {
     lister?.kill();
     clearInterval(pointerTimer);
     clearInterval(keepTimer);
+    clearInterval(idleTimer);
     timers.forEach(clearTimeout);
   });
   app.on('window-all-closed', () => app.quit()); // never stay alive with no overlay

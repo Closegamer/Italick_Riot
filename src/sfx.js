@@ -124,6 +124,25 @@ export function thump() {
   } catch {}
 }
 
+// a soft snore while he sleeps
+export function snore() {
+  try {
+    const a = audio(), t0 = a.currentTime;
+    const osc = a.createOscillator(), low = a.createBiquadFilter(), gain = a.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(88, t0);
+    osc.frequency.linearRampToValueAtTime(58, t0 + 0.55);
+    low.type = 'lowpass';
+    low.frequency.value = 280;
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.075, t0 + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.7);
+    osc.connect(low).connect(gain).connect(a.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.75);
+  } catch {}
+}
+
 // the door creaking open
 export function doorOpen() {
   try {

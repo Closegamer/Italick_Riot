@@ -37,6 +37,8 @@ Version 1.0.
   or into a karate man in a white kimono, then beats the statue until it bursts into dust. Punches, kicks and fights have
   synthesized sounds. Statues obey the same gravity as he does: knock one off a window and it falls; hit the taskbar and it
   shatters.
+- **Sleeps when you are away**: after five minutes without keyboard or mouse activity, a bed pops up beside him, he
+  climbs in, lies down with floating Zzz and soft snores. Any input wakes him and the bed disappears.
 - **Grabbable**: hover over him, then drag him anywhere. Let go to drop him or throw him. While a battle or a cinematic
   scene is playing he politely ignores the mouse.
 
@@ -57,8 +59,8 @@ npm run bundle:italic    # dist\Italic-1.0.exe (single self-contained file)
 `build:italic` copies the Electron runtime already in `node_modules`; `bundle:italic` wraps that folder in a small
 self-extracting launcher (`tools/launcher.cs`, built with the .NET Framework compiler included in Windows).
 
-Useful when testing: `ITALIC_START_MS`, `ITALIC_ROAM_MS`, `ITALIC_WORK_MS`, `ITALIC_BATTLE_MS`, `ITALIC_ACTIONS=idle`,
-`ITALIC_QUIT_MS`.
+Useful when testing: `ITALIC_START_MS`, `ITALIC_ROAM_MS`, `ITALIC_WORK_MS`, `ITALIC_BATTLE_MS`, `ITALIC_IDLE_MS`,
+`ITALIC_ACTIONS=idle`, `ITALIC_QUIT_MS`.
 
 ## Code
 
