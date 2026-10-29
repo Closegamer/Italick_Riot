@@ -6,14 +6,14 @@ architecture, features, version or release process changes.
 ## What this is
 
 **Italick** is a Windows-only 3D desktop companion built with Electron + Three.js. He lives in the tray, walks on the
-taskbar, climbs open windows, parachutes, works at a desk, plants a flag, sleeps in a bed, fights rubber Anthropic statues,
-and is occasionally stopped by two policemen.
+taskbar, climbs open windows, parachutes, works at a desk, plants a flag, sleeps in a bed, has food delivered by
+helicopter, fights rubber Anthropic statues, and is occasionally stopped by two policemen.
 
 - Repository: https://github.com/Closegamer/Italick_Riot
 - Author / developer nick: **Closegamer** — `closegamer@mail.ru`
 - Flag signature: **Italick, Russian programmer**
-- Current version: **1.3.0** (release tag `v1.3`)
-- Latest download: `Italick-1.3-windows.zip`
+- Current version: **1.4.0** (release tag `v1.4`)
+- Latest download: `Italick-1.4-windows.zip`
 - Important spelling: the character/app is **Italick**, not “Italic”. Keep it that way everywhere.
 - Windows 10/11 x64 only for now.
 
@@ -33,8 +33,8 @@ and is occasionally stopped by two policemen.
 
 | Path | Purpose |
 |---|---|
-| `italick-main.js` | Electron main process: tray, overlay window, window lister, demo timer, battles, police visits, sleep/wake |
-| `src/app.js` | Three.js scene, animation loop, door/flag/sleep/police scenes, mouse drag/throw, script queue |
+| `italick-main.js` | Electron main process: tray, overlay window, window lister, demo timer, battles, police visits, food deliveries, sleep/wake |
+| `src/app.js` | Three.js scene, animation loop, door/flag/sleep/police/food scenes, mouse drag/throw, script queue |
 | `src/geek.js` | Italick model, poses, ninja and karate outfits |
 | `src/roam.js` | Roaming, ladder/rope climbing, parachuting, statue battles (ninja + karate), roam cleanup |
 | `src/statue.js` | Rubber Anthropic statue, gravity, hits, dust |
@@ -42,6 +42,7 @@ and is occasionally stopped by two policemen.
 | `src/bed.js` | Bed, Zzz sprite, sleep animation support |
 | `src/police.js` | Two policemen: uniform, cap, walk/read/point/talk/laugh animations |
 | `src/passport.js` | Russian passport: burgundy cover, gold double-headed eagle, «ПАСПОРТ» |
+| `src/food.js` | Food delivery props: helicopter, parachuted crate, burger, drink, wrapper, rubbish bin |
 | `src/flag.js` | Flag cloth, caption/signature, wind flutter |
 | `src/sfx.js` | All sounds, synthesized with Web Audio (no audio assets) |
 | `src/actions/*.js` | Random behaviours: `walk`, `idle`, `sit` |
@@ -58,8 +59,9 @@ and is occasionally stopped by two policemen.
 - After `ITALICK_START_MS` (default 12 s): roam for 55 s → sit at desk and work for 22 s → repeat.
 - Statue battles: every 45 s.
 - Police visits: **random 3–8 minutes apart**.
+- Food deliveries: **random 4–9 minutes apart**; the tray menu also has **Order food**.
 - Sleep: after 5 minutes of no keyboard/mouse (`powerMonitor.getSystemIdleTime`), a bed appears; any input wakes him.
-- Timers for the show/battles/police are cleared while sleeping and restarted on wake.
+- Timers for the show/battles/police/food are cleared while sleeping and restarted on wake.
 
 ### Statue battles
 - Spawn on a random window top or the taskbar (65% window if available).
@@ -73,6 +75,15 @@ and is occasionally stopped by two policemen.
   each other and discuss, laugh, then leave past the left edge.
 - Footsteps, murmurs and laughs are synthesized.
 - Visit is skipped while asleep or working at the desk; it retries on the next random interval.
+
+### Food delivery (`foodScene` in `src/app.js`)
+- A **FOOD** helicopter flies in from the right and hovers over a drop point beside him.
+- A parachuted crate drops, the chute collapses, the helicopter climbs away and leaves.
+- He walks to the crate, opens it, eats a burger in three bites (jaw chews) and drinks from a cup (the props follow the
+  hand bones through `k.hand('R'/'L')`).
+- A green bin pops in; he carries the wrapper over and throws it in, the lid opens/closes, both props vanish.
+- Three synthesized beeps mark the end; skipped while asleep or working at the desk.
+- Tray item **Order food** triggers it immediately.
 
 ### Flag
 - Plants at the left edge at startup, caption: **“Hey, Anthropic! Stop blocking Russian accounts!”**
@@ -132,6 +143,8 @@ Release assets must be uploaded to GitHub Releases, not committed (the exe is ~1
 | `ITALICK_BATTLE_MS` | statue interval (default 45000) |
 | `ITALICK_POLICE_MS` | fixed police interval for testing (default is random 3–8 min) |
 | `ITALICK_POLICE_NOW` | start a police visit N ms after load (testing) |
+| `ITALICK_FOOD_MS` | fixed food delivery interval for testing (default is random 4–9 min) |
+| `ITALICK_FOOD_NOW` | start a food delivery N ms after load (testing) |
 | `ITALICK_IDLE_MS` | idle time before sleep (default 300000) |
 | `ITALICK_ACTIONS` | comma list of behaviours; `idle` keeps him still (testing) |
 | `ITALICK_QUIT_MS` | quit cleanly N ms after load (testing shutdown) |
@@ -146,8 +159,8 @@ npm start
 
 ## Known gotchas
 
-- While roaming, `script === roamScript`; battles/police queue and run after the roam cleanup, so props don’t remain.
-- Sleeping clears demo timers; `show()`, `battles()` and `police()` are restarted on wake.
+- While roaming, `script === roamScript`; battles/police/food queue and run after the roam cleanup, so props don’t remain.
+- Sleeping clears demo timers; `show()`, `battles()`, `police()` and `food()` are restarted on wake.
 - Do not call `win.webContents` without `win && !win.isDestroyed()` checks in timers.
 - The police scene is intentionally long (~25 s): entry, reading, flag discussion, talk, laugh, exit.
 - The full AI assistant is gone; `%APPDATA%\desktop-assistant` and `voice/` belong to old versions only.
@@ -155,8 +168,9 @@ npm start
 
 ## Current state
 
-- Latest feature work: victory poses after statue fights (karate finishing stance and bow, ninja nunchaku flourish and hand seal).
-- Latest release: **v1.3** (`Italick-1.3-windows.zip`).
-- Recent commits: `54bceae Bump version to 1.3 and update description`.
+- Latest feature work: helicopter food delivery — a **FOOD** helicopter drops a parachuted crate with a burger and a drink,
+  Italick eats, drinks, and throws the wrapper into a bin that appears; three beeps mark the end.
+- Latest release: **v1.4** (`Italick-1.4-windows.zip`).
+- Recent commits: `Bump to 1.4 and add helicopter food delivery`.
 
-_Last updated: 2026-10-29._
+_Last updated: 2026-10-30._

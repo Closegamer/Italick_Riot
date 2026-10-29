@@ -7,6 +7,7 @@ import { createBed } from './bed.js';
 import { createCop } from './police.js';
 import { createPassport } from './passport.js';
 import { createRoam } from './roam.js';
+import { createHelicopter, createFoodPack, createBucket, createBurger, createDrink, createRubbish } from './food.js';
 import * as sfx from './sfx.js';
 
 // Behaviour = action modules in ./actions: { name, weight, start(k, ctx), update(k, dt, ctx) -> true when done, stop(k) },
@@ -89,7 +90,14 @@ const flag = createFlag();
 const bed = createBed();
 const copA = createCop(0), copB = createCop(1);
 const passport = createPassport();
-scene.add(door.root, flag.root, bed.root, copA.root, copB.root, passport.root);
+const heli = createHelicopter();
+const foodPack = createFoodPack();
+const bucket = createBucket();
+const burger = createBurger();
+const drink = createDrink();
+const rubbish = createRubbish();
+burger.visible = drink.visible = rubbish.visible = false;
+scene.add(door.root, flag.root, bed.root, copA.root, copB.root, passport.root, heli.root, foodPack.root, bucket.root, burger, drink, rubbish);
 
 function setSize(px) {
   ctx.SIZE = px;
@@ -114,7 +122,7 @@ function next() {
 }
 
 // scripted scenes (leaving through a door, coming back) are generators: each frame resumes them with dt
-let script = null, gone = true, roamScript = null, battleQueued = false, policeQueued = false; // he starts behind his door and comes out of it
+let script = null, gone = true, roamScript = null, battleQueued = false, policeQueued = false, foodQueued = false; // he starts behind his door and comes out of it
 const run = (scene) => { action?.stop(k, ctx); action = null; approach = null; script = scene; script.next(); };
 function* during(sec, each) {
   for (let s = 0; s < sec;) { const dt = yield; s += dt; each(Math.min(1, s / sec), dt); }
@@ -469,6 +477,158 @@ function* policeScene() {
   p.y = ctx.ground;
 }
 
+// ---------- food delivery: a helicopter drops a burger and a drink; he eats, drinks and bins the rubbish ----------
+function* foodScene() {
+  if (bye) return;
+  ctx.roam = false;
+  ctx.busy = false;
+  roamer.cancel();
+  const S = ctx.SIZE, p = k.root.position;
+  p.y = ctx.ground;
+  p.x = Math.max(1.1 * S, Math.min(W - 1.1 * S, p.x));
+  const side = p.x < W / 2 ? 1 : -1;
+  const dropX = Math.max(1.4 * S, Math.min(W - 1.4 * S, p.x + side * 1.2 * S));
+  const bucketX = Math.max(0.9 * S, Math.min(W - 0.9 * S, dropX + side * 1.5 * S));
+  const hand = new THREE.Vector3();
+
+  // helicopter flies in from the right and hovers over the drop point
+  heli.place(W + 1.8 * S, ctx.ground + 2.4 * S, -0.5 * S, S, -1);
+  heli.set(0.001);
+  sfx.heli();
+  const startX = W + 1.8 * S;
+  yield* during(1.8, (a, dt) => {
+    const e = ease(a);
+    heli.root.position.x = startX + (dropX - startX) * e;
+    heli.root.position.y = ctx.ground + 2.4 * S + 0.12 * S * Math.sin(a * Math.PI * 3);
+    heli.animate(t);
+    heli.set(Math.min(1, a * 5));
+  });
+
+  // the pack drops under a parachute
+  foodPack.place(dropX, ctx.ground + 1.55 * S, -0.2 * S, S);
+  foodPack.set(0.001);
+  yield* during(0.35, (a, dt) => { foodPack.set(pop(a)); heli.animate(t); });
+  sfx.whoosh();
+  const dropY = ctx.ground + 1.55 * S;
+  yield* during(1.6, (a, dt) => {
+    foodPack.root.position.y = dropY + (ctx.ground - dropY) * a * a;
+    foodPack.root.position.x = dropX + 0.08 * S * Math.sin(a * Math.PI * 2);
+    foodPack.animate(t);
+    heli.animate(t);
+  });
+  sfx.thump();
+  foodPack.collapseChute();
+  yield* during(0.4, (a, dt) => { foodPack.root.position.y = ctx.ground; heli.animate(t); });
+
+  // the helicopter leaves
+  const leaveX = heli.root.position.x;
+  yield* during(1.2, (a, dt) => {
+    heli.root.position.x = leaveX + (W + 2 * S - leaveX) * ease(a);
+    heli.root.position.y = ctx.ground + 2.4 * S + 0.6 * S * a;
+    heli.animate(t);
+  });
+  heli.hide();
+
+  // walk to the pack and open it
+  yield* walkTo(dropX - side * 0.55 * S, () => {}, 1.5);
+  k.face(side);
+  k.look(0, -0.15);
+  yield* during(0.35, (a, dt) => { k.stand(t, dt); foodPack.animate(t); });
+  foodPack.open();
+  sfx.cloth();
+  yield* during(0.45, (a, dt) => { k.stand(t, dt); });
+
+  // burger: three bites
+  burger.visible = true;
+  burger.scale.setScalar(S * 0.85);
+  k.face(0);
+  k.look(0, -0.1);
+  const holdBurger = (dt) => {
+    k.eat(t, dt);
+    k.hand('R', hand);
+    burger.position.set(hand.x + 0.02 * S, hand.y + 0.04 * S, hand.z + 0.1 * S);
+    burger.rotation.set(0.2, 0, 0.2);
+  };
+  yield* during(0.5, (a, dt) => holdBurger(dt));
+  for (let bite = 0; bite < 3; bite++) {
+    yield* during(0.45, (a, dt) => holdBurger(dt));
+    sfx.chomp();
+    yield* during(0.25, (a, dt) => holdBurger(dt));
+  }
+  burger.visible = false;
+  k.talk(null);
+  sfx.gulp();
+
+  // drink
+  drink.visible = true;
+  drink.scale.setScalar(S * 0.95);
+  const holdDrink = (dt) => {
+    k.drink(t, dt);
+    k.hand('L', hand);
+    drink.position.set(hand.x + 0.01 * S, hand.y + 0.03 * S, hand.z + 0.1 * S);
+    drink.rotation.set(-0.35, 0, 0.2);
+  };
+  yield* during(1.8, (a, dt) => holdDrink(dt));
+  sfx.gulp();
+  drink.visible = false;
+  k.talk(null);
+  k.face(0);
+  yield* during(0.3, (a, dt) => { k.stand(t, dt); });
+
+  // the bin appears; he carries the wrapper over and throws it in
+  bucket.place(bucketX, ctx.ground, 0, S);
+  bucket.set(0.001);
+  sfx.cloth();
+  yield* during(0.4, (a, dt) => { k.stand(t, dt); bucket.set(pop(a)); });
+
+  rubbish.visible = true;
+  rubbish.scale.setScalar(S * 0.9);
+  yield* walkTo(bucketX - side * 0.55 * S, (dt) => {
+    k.hand('R', hand);
+    rubbish.position.set(hand.x + 0.03 * S, hand.y + 0.05 * S, hand.z + 0.08 * S);
+  }, 1.5);
+  k.face(side);
+  k.look(0, 0.1);
+  yield* during(0.35, (a, dt) => {
+    k.pose({ aR: -2.2, eR: -0.6, oR: 0.2, aL: 0.1, eL: -0.3, lean: -0.1, twist: -0.2 }, dt);
+    k.hand('R', hand);
+    rubbish.position.set(hand.x + 0.03 * S, hand.y + 0.05 * S, hand.z + 0.08 * S);
+  });
+
+  const from = new THREE.Vector3();
+  k.hand('R', from);
+  const to = new THREE.Vector3(bucketX, ctx.ground + 0.62 * S, 0);
+  sfx.whoosh();
+  yield* during(0.5, (a, dt) => {
+    k.pose({ aR: -0.35, eR: -0.2, oR: 0.05, aL: 0.2, eL: -0.4, lean: 0.2, twist: 0.25 }, dt);
+    rubbish.position.lerpVectors(from, to, a);
+    rubbish.position.y += Math.sin(a * Math.PI) * 0.45 * S;
+    rubbish.rotation.x += dt * 8;
+  });
+  rubbish.visible = false;
+  bucket.open(true);
+  sfx.thump();
+  yield* during(0.35, (a, dt) => { k.stand(t, dt); bucket.open(true); });
+  bucket.open(false);
+
+  yield* during(0.5, (a, dt) => { k.stand(t, dt); bucket.set(1 - ease(a)); });
+  bucket.hide();
+  foodPack.hide();
+  k.talk(null);
+  k.face(0);
+  p.y = ctx.ground;
+  sfx.beep(); // delivery finished
+}
+
+window.foodDelivery = () => {
+  if (gone || ctx.busy || bye) return false;
+  if (script && script !== roamScript) return false;
+  if (script && script === roamScript) { ctx.roam = false; foodQueued = true; return true; }
+  foodQueued = false;
+  run(foodScene());
+  return true;
+};
+
 window.setLook = k.setLook;
 
 next();
@@ -583,6 +743,7 @@ function simulate(dt) {
       if (wasRoam) roamScript = null;
       if (battleQueued && !bye) { battleQueued = false; run(roamer.battle()); }
       else if (policeQueued && !bye) { policeQueued = false; run(policeScene()); }
+      else if (foodQueued && !bye) { foodQueued = false; run(foodScene()); }
       else next();
     }
   } else if (gone) {

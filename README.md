@@ -3,7 +3,8 @@
 A 3D character who lives on your Windows desktop: he walks along the taskbar, climbs the tops of your open windows by
 ladder and rope, parachutes down, perches on window edges, sits at his desk and types — and every so often a rubber
 statue of Anthropic pops up and he deals with it (in a ninja suit with nunchaku, or as a karate man in a kimono).
-He also has his own bed now: leave him alone for five minutes and he goes to sleep in it.
+He also has his own bed now: leave him alone for five minutes and he goes to sleep in it — and a little **FOOD**
+helicopter occasionally drops him a burger and a drink.
 
 He plants a flag at the left edge of the screen:
 
@@ -12,17 +13,17 @@ He plants a flag at the left edge of the screen:
 > *Italick, Russian programmer*
 
 **No chat, no voice control, no microphone** — Italick is a show-off, not an assistant. Windows 10/11 (x64) for now.
-Version 1.3.
+Version 1.4.
 
 ## Download and run (no installation)
 
-1. Download **`Italick-1.3-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick_Riot/releases/latest).
+1. Download **`Italick-1.4-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick_Riot/releases/latest).
 2. Unzip it anywhere (Desktop, USB stick, another PC).
-3. Double-click **`Italick-1.3.exe`**.
+3. Double-click **`Italick-1.4.exe`**.
 
 - No Node.js, no installer, no extra files: the exe is self-contained.
 - **First launch** takes a few seconds — it unpacks itself once to `%LOCALAPPDATA%\Italick`. Later launches are immediate.
-- The app lives in the **system tray**. Right-click its icon → **Quit**.
+- The app lives in the **system tray**. Right-click its icon → **Order food** or **Quit**.
 - **SmartScreen**: the exe is unsigned, so Windows may warn the first time — *More info* → *Run anyway*.
 - Only **one** Italick can run at a time; launching it again brings the running one to the front.
 
@@ -41,6 +42,9 @@ Version 1.3.
 - **Police visits**: every 3–8 minutes, two policemen slowly walk in from the right side of the screen. They stop by the
   flag, Italick shows them his Russian passport, they read it, both turn to the flag and point at it, discuss it with each
   other, have a good laugh and walk away to the left.
+- **Food delivery**: every 4–9 minutes a little **FOOD** helicopter flies in and drops a parachuted crate with a burger and
+  a drink. Italick opens it, takes three bites, drinks, then a bin appears and he throws the wrapper away. A three-beep
+  chime marks the end. The tray menu also has **Order food** for an instant delivery.
 - **Sleeps when you are away**: after five minutes without keyboard or mouse activity, a bed pops up beside him, he
   climbs in, lies down with floating Zzz and soft snores. Any input wakes him and the bed disappears.
 - **Grabbable**: hover over him, then drag him anywhere. Let go to drop him or throw him. While a battle or a cinematic
@@ -56,8 +60,8 @@ cd Italick_Riot
 npm install
 
 npm start                # run the app from source
-npm run build:italick     # dist\Italick-1.3-win32-x64\Italick.exe (folder build)
-npm run bundle:italick    # dist\Italick-1.3.exe (single self-contained file)
+npm run build:italick     # dist\Italick-1.4-win32-x64\Italick.exe (folder build)
+npm run bundle:italick    # dist\Italick-1.4.exe (single self-contained file)
 ```
 
 `build:italick` copies the Electron runtime already in `node_modules`; `bundle:italick` wraps that folder in a small
@@ -92,7 +96,7 @@ Project memory (architecture, conventions, release checklist): **[MEMORY.md](MEM
 Italick installs nothing into Windows: no registry entries, no services, no startup items, no admin rights needed.
 
 1. Right-click the tray icon → **Quit**.
-2. Delete `Italick-1.3.exe` (or the whole unzipped folder).
+2. Delete `Italick-1.4.exe` (or the whole unzipped folder).
 3. Delete the files it left behind — press **Win+R**, paste each path, press Enter, and delete the folder:
    - `%LOCALAPPDATA%\Italick` — the unpacked app (the biggest one, ~300 MB)
    - `%APPDATA%\Italick` — Electron/Chromium cache and preferences

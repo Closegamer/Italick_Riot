@@ -69,6 +69,9 @@ const BATTLE_MS = Number(process.env.ITALICK_BATTLE_MS) || 45000;
 const POLICE_MIN_MS = 3 * 60 * 1000, POLICE_MAX_MS = 8 * 60 * 1000; // visits are 3-8 minutes apart
 const POLICE_FIXED_MS = Number(process.env.ITALICK_POLICE_MS) || 0; // fixed interval for testing
 const policeDelay = () => POLICE_FIXED_MS || POLICE_MIN_MS + Math.random() * (POLICE_MAX_MS - POLICE_MIN_MS);
+const FOOD_MIN_MS = 4 * 60 * 1000, FOOD_MAX_MS = 9 * 60 * 1000; // deliveries are 4-9 minutes apart
+const FOOD_FIXED_MS = Number(process.env.ITALICK_FOOD_MS) || 0;
+const foodDelay = () => FOOD_FIXED_MS || FOOD_MIN_MS + Math.random() * (FOOD_MAX_MS - FOOD_MIN_MS);
 const IDLE_SLEEP_MS = Number(process.env.ITALICK_IDLE_MS) || 5 * 60 * 1000; // no input -> bed
 function show() {
   if (quitting) return;
@@ -95,6 +98,15 @@ function police() {
     run('police()');
     police();
   }, policeDelay());
+}
+
+// every so often a helicopter drops a burger and a drink, and he bins the rubbish
+function food() {
+  if (quitting) return;
+  later(() => {
+    run('foodDelivery()');
+    food();
+  }, foodDelay());
 }
 
 async function goodbye() {
@@ -153,6 +165,7 @@ if (primary) app.whenReady().then(() => {
       show(); // resume the demo
       battles();
       police();
+      food();
     }
   }, 2000);
 
@@ -162,8 +175,10 @@ if (primary) app.whenReady().then(() => {
     later(show, START_MS); // once the flag is planted
     later(() => { run('battle()'); battles(); }, START_MS + 7000); // first statue, then every ITALICK_BATTLE_MS
     police(); // first police visit in 3-8 minutes, then another random 3-8 minutes
+    food(); // first food delivery in 4-9 minutes, then another random 4-9 minutes
     if (process.env.ITALICK_QUIT_MS) later(goodbye, Number(process.env.ITALICK_QUIT_MS)); // testing a clean quit
     if (process.env.ITALICK_POLICE_NOW) later(() => run('police()'), Number(process.env.ITALICK_POLICE_NOW)); // testing
+    if (process.env.ITALICK_FOOD_NOW) later(() => run('foodDelivery()'), Number(process.env.ITALICK_FOOD_NOW)); // testing
   });
   win.loadFile('index.html', { query: {
     ground: String(d.workArea.y + d.workArea.height - y),
@@ -177,6 +192,8 @@ if (primary) app.whenReady().then(() => {
   tray.setToolTip(`Italick ${version}`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: `Italick ${version} — from Russia with code`, enabled: false },
+    { type: 'separator' },
+    { label: 'Order food', click: () => run('foodDelivery()') },
     { type: 'separator' },
     { label: 'Quit', click: goodbye },
   ]));

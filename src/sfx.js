@@ -283,6 +283,72 @@ export function flagPlant() {
 }
 
 // a piece of cloth flapping
+// helicopter rotor: low, chopped noise
+export function heli() {
+  try {
+    const a = audio(), t0 = a.currentTime;
+    const src = noise(), low = a.createBiquadFilter(), gain = a.createGain();
+    low.type = 'lowpass';
+    low.frequency.value = 260;
+    gain.gain.setValueAtTime(0.0001, t0);
+    for (let i = 0; i < 12; i++) {
+      const t = t0 + i * 0.12;
+      gain.gain.exponentialRampToValueAtTime(i % 2 ? 0.12 : 0.28, t);
+      gain.gain.exponentialRampToValueAtTime(0.04, t + 0.07);
+    }
+    src.connect(low).connect(gain).connect(a.destination);
+    src.start(t0);
+    src.stop(t0 + 1.5);
+  } catch {}
+}
+
+// a bite of the burger
+export function chomp() {
+  try {
+    const a = audio(), t0 = a.currentTime;
+    const src = noise(), band = a.createBiquadFilter(), gain = a.createGain();
+    band.type = 'bandpass';
+    band.Q.value = 1.4;
+    band.frequency.value = 420;
+    envelope(gain.gain, t0, 0.22, 0.1);
+    src.connect(band).connect(gain).connect(a.destination);
+    src.start(t0);
+    src.stop(t0 + 0.12);
+  } catch {}
+}
+
+// a swallow
+export function gulp() {
+  try {
+    const a = audio(), t0 = a.currentTime;
+    const osc = a.createOscillator(), gain = a.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(260, t0);
+    osc.frequency.exponentialRampToValueAtTime(120, t0 + 0.18);
+    envelope(gain.gain, t0, 0.18, 0.22);
+    osc.connect(gain).connect(a.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.24);
+  } catch {}
+}
+
+// the delivery is finished: three short microwave-style beeps
+export function beep() {
+  try {
+    const a = audio(), t0 = a.currentTime;
+    for (let i = 0; i < 3; i++) {
+      const at = t0 + i * 0.16;
+      const osc = a.createOscillator(), gain = a.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 1046;
+      envelope(gain.gain, at, 0.16, 0.1);
+      osc.connect(gain).connect(a.destination);
+      osc.start(at);
+      osc.stop(at + 0.12);
+    }
+  } catch {}
+}
+
 export function cloth() {
   try {
     const a = audio(), t0 = a.currentTime;

@@ -550,6 +550,21 @@ export function createGeek() {
 
     stand: (t, dt) => apply({ aL: 0.04 * Math.sin(t * 0.6), aR: -0.04 * Math.sin(t * 0.6), wL: 0.06, wR: 0.06 }, dt),
 
+    // eating: the right hand holds the burger at his mouth, the jaw chews
+    eat: (t, dt) => {
+      apply({ aR: -1.15, eR: -1.95, oR: 0.08, wR: 0.12, aL: -0.05, eL: -0.2, wL: 0.06, lean: 0.02 }, dt);
+      const chew = Math.abs(Math.sin(t * 9));
+      const m = h.userData.mouth;
+      m.scale.y += (Math.max(0.001, 0.1 + 0.16 * chew) - m.scale.y) * 0.4;
+    },
+
+    // drinking: the left hand tips the cup to his mouth
+    drink: (t, dt) => {
+      apply({ aR: -0.1, eR: -0.25, oR: 0.1, wR: 0.08, aL: -1.45, eL: -1.9, oL: 0.12, wL: 0.3, lean: 0.01 }, dt);
+      const m = h.userData.mouth;
+      m.scale.y += (0.08 - m.scale.y) * 0.3;
+    },
+
     // phase advances with distance walked. Feet are planted with IK: the stance foot moves backwards in body space at
     // exactly the body's forward speed, so it stays pinned to the screen while the hips travel over it.
     walk: (phase, dt) => {
