@@ -1,14 +1,14 @@
 {
-  "name": "italic",
+  "name": "italick",
   "version": "1.1.0",
-  "description": "Italic — a 3D Windows desktop companion: flag, roaming, Anthropic statue battles and his own bed for naps when you are away. writtenBy('Closegamer', 2026) · closegamer@mail.ru",
+  "description": "Italick — a 3D Windows desktop companion: flag, roaming, Anthropic statue battles and his own bed for naps when you are away. writtenBy('Closegamer', 2026) · closegamer@mail.ru",
   "author": "Closegamer <closegamer@mail.ru>",
-  "main": "italic-main.js",
+  "main": "italick-main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "build:italic": "node tools/build-italic.mjs",
-    "bundle:italic": "node tools/bundle-italic.mjs"
+    "build:italick": "node tools/build-italick.mjs",
+    "bundle:italick": "node tools/bundle-italick.mjs"
   },
   "dependencies": {
     "electron": "^45.1.0",

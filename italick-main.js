@@ -1,4 +1,4 @@
-// Italic: the show-off build. No chat, no AI, no commands. He comes out of his door, carries a flag to the left edge of
+// Italick: the show-off build. No chat, no AI, no commands. He comes out of his door, carries a flag to the left edge of
 // the screen, plants it, and then just lives there: climbs windows by rope and ladder, parachutes down, sits at his desk
 // and works on his laptop. Everything visual comes from the same scene code as the full assistant (src/app.js).
 // writtenBy('Closegamer', 2026) · closegamer@mail.ru
@@ -9,9 +9,9 @@ const readline = require('readline');
 const { spawn } = require('child_process');
 const { topEdges } = require('./roam/edges');
 
-app.setName('Italic'); // one identity for the folder build and the single-file build: only one instance may run
+app.setName('Italick'); // one identity for the folder build and the single-file build: only one instance may run
 
-const primary = app.requestSingleInstanceLock(); // a second double-click must not spawn a second Italic
+const primary = app.requestSingleInstanceLock(); // a second double-click must not spawn a second Italick
 if (!primary) app.quit();
 else app.on('second-instance', () => { // the user launched it again: bring the running one back to the front
   if (!win || win.isDestroyed()) return;
@@ -24,7 +24,7 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required'); // fight sounds without a click first
 
 const FLAG = {
-  brain: ['Italic', ''],
+  brain: ['Italick', ''],
   place: '',
   ok: null,
   caption: 'Hey, Anthropic! Stop blocking Russian accounts!',
@@ -62,11 +62,11 @@ function startLister() {
 }
 
 // the show: roam the screen for a while, then sit down at the desk and type, and round again
-// (the times can be shortened for a quick look: ITALIC_START_MS, ITALIC_ROAM_MS, ITALIC_WORK_MS, ITALIC_BATTLE_MS)
-const START_MS = Number(process.env.ITALIC_START_MS) || 12000;
-const ROAM_MS = Number(process.env.ITALIC_ROAM_MS) || 55000, WORK_MS = Number(process.env.ITALIC_WORK_MS) || 22000;
-const BATTLE_MS = Number(process.env.ITALIC_BATTLE_MS) || 45000;
-const IDLE_SLEEP_MS = Number(process.env.ITALIC_IDLE_MS) || 5 * 60 * 1000; // no input -> bed
+// (the times can be shortened for a quick look: ITALICK_START_MS, ITALICK_ROAM_MS, ITALICK_WORK_MS, ITALICK_BATTLE_MS)
+const START_MS = Number(process.env.ITALICK_START_MS) || 12000;
+const ROAM_MS = Number(process.env.ITALICK_ROAM_MS) || 55000, WORK_MS = Number(process.env.ITALICK_WORK_MS) || 22000;
+const BATTLE_MS = Number(process.env.ITALICK_BATTLE_MS) || 45000;
+const IDLE_SLEEP_MS = Number(process.env.ITALICK_IDLE_MS) || 5 * 60 * 1000; // no input -> bed
 function show() {
   if (quitting) return;
   run('setRoam(true)');
@@ -147,22 +147,22 @@ if (primary) app.whenReady().then(() => {
   win.webContents.once('did-finish-load', () => {
     later(() => run(`setFlag(${JSON.stringify(FLAG)})`), 900); // flagTodo: after the door, he carries it to the left edge
     later(show, START_MS); // once the flag is planted
-    later(() => { run('battle()'); battles(); }, START_MS + 7000); // first statue, then every ITALIC_BATTLE_MS
-    if (process.env.ITALIC_QUIT_MS) later(goodbye, Number(process.env.ITALIC_QUIT_MS)); // testing a clean quit
+    later(() => { run('battle()'); battles(); }, START_MS + 7000); // first statue, then every ITALICK_BATTLE_MS
+    if (process.env.ITALICK_QUIT_MS) later(goodbye, Number(process.env.ITALICK_QUIT_MS)); // testing a clean quit
   });
   win.loadFile('index.html', { query: {
     ground: String(d.workArea.y + d.workArea.height - y),
-    actions: process.env.ITALIC_ACTIONS || ACTIONS.join(','), // ITALIC_ACTIONS=idle keeps him still (testing)
+    actions: process.env.ITALICK_ACTIONS || ACTIONS.join(','), // ITALICK_ACTIONS=idle keeps him still (testing)
     size: String(SIZE),
-    name: 'Italic',
+    name: 'Italick',
     home: '0', // he never moves into a terminal window
   } });
 
   tray = new Tray(path.join(__dirname, 'icon.png'));
   const version = app.getVersion().replace(/\.0$/, '');
-  tray.setToolTip(`Italic ${version}`);
+  tray.setToolTip(`Italick ${version}`);
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: `Italic ${version} — from Russia with code`, enabled: false },
+    { label: `Italick ${version} — from Russia with code`, enabled: false },
     { type: 'separator' },
     { label: 'Quit', click: goodbye },
   ]));

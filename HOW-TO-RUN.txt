@@ -1,4 +1,4 @@
-ITALIC 1.1 - Windows desktop companion
+Italick 1.1 - Windows desktop companion
 ======================================
 
 WHAT IT IS
@@ -9,7 +9,7 @@ his own: after five minutes without input he lies down and sleeps.
 
 HOW TO RUN
 1. Unzip this folder anywhere you like.
-2. Double-click Italic-1.1.exe.
+2. Double-click Italick-1.1.exe.
 3. That's it. There is no installer and no chat window.
 
 The app lives in the system tray (bottom-right corner, near the clock).
@@ -17,7 +17,7 @@ Right-click the tray icon and choose "Quit" to close it.
 
 FIRST LAUNCH
 The first start takes a few seconds: the exe unpacks itself once into
-%LOCALAPPDATA%\Italic. Later starts are immediate.
+%LOCALAPPDATA%\Italick. Later starts are immediate.
 
 WINDOWS SMARTSCREEN
 The exe is not code-signed, so Windows may show a warning the first time.
@@ -33,31 +33,33 @@ CONTROLS
   planting the flag, and fights.
 
 ONE INSTANCE
-Only one Italic can run at a time. Launching the exe again just brings
+Only one Italick can run at a time. Launching the exe again just brings
 the running one back to the front.
 
 REQUIREMENTS
 Windows 10 or Windows 11, 64-bit. Nothing else.
 
 HOW TO UNINSTALL
-Italic installs nothing into Windows - no registry entries, no services,
+Italick installs nothing into Windows - no registry entries, no services,
 no startup items, and no admin rights are needed.
 
 1. Right-click the tray icon and choose "Quit".
-2. Delete Italic-1.1.exe (or the whole unzipped folder).
+2. Delete Italick-1.1.exe (or the whole unzipped folder).
 3. Delete the folders it left behind. Press Win+R, paste a path, press
    Enter, and delete the folder:
-     %LOCALAPPDATA%\Italic    (the unpacked app, about 300 MB)
-     %APPDATA%\Italic         (cache and preferences)
-     %APPDATA%\italic         (left by older builds)
+     %LOCALAPPDATA%\Italick    (the unpacked app, about 300 MB)
+     %APPDATA%\Italick         (cache and preferences)
+     %LOCALAPPDATA%\Italic     (older builds, spelled "Italic")
+     %APPDATA%\Italic          (older builds)
+     %APPDATA%\italic          (even older builds)
 
 That is the whole uninstall. To use it again, just download and run it.
 
 If there is no tray icon but the process is still running: Task Manager
--> Details -> end Italic.exe, then delete the folders above.
+-> Details -> end Italick.exe, then delete the folders above.
 
 VERSION
-Italic 1.1
+Italick 1.1
 
 writtenBy('Closegamer', 2026)
 closegamer@mail.ru

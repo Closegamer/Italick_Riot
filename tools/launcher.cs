@@ -1,5 +1,5 @@
-// Self-extracting Italic launcher. tools/bundle-italic.mjs appends the app as a ZIP and this stub extracts it once to
-// %LOCALAPPDATA%\Italic\app-<build id>, then starts Italic.exe from there. The file layout of the built exe:
+// Self-extracting Italick launcher. tools/bundle-italick.mjs appends the app as a ZIP and this stub extracts it once to
+// %LOCALAPPDATA%\Italick\app-<build id>, then starts Italick.exe from there. The file layout of the built exe:
 //   [this launcher][zip archive][int64 little-endian zip length]
 using System;
 using System.Diagnostics;
@@ -8,8 +8,8 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Windows.Forms;
 
-[assembly: AssemblyTitle("Italic")]
-[assembly: AssemblyProduct("Italic")]
+[assembly: AssemblyTitle("Italick")]
+[assembly: AssemblyProduct("Italick")]
 [assembly: AssemblyCompany("Closegamer")]
 [assembly: AssemblyDescription("writtenBy('Closegamer', 2026) - closegamer@mail.ru")]
 [assembly: AssemblyCopyright("closegamer@mail.ru")]
@@ -30,19 +30,19 @@ static class Program
             long zipLength;
             using (FileStream fs = new FileStream(self, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
-                if (total < 16) throw new InvalidDataException("Italic is damaged: the app archive is missing.");
+                if (total < 16) throw new InvalidDataException("Italick is damaged: the app archive is missing.");
                 fs.Seek(-8, SeekOrigin.End);
                 byte[] tail = new byte[8];
                 fs.Read(tail, 0, 8);
                 zipLength = BitConverter.ToInt64(tail, 0);
             }
             long zipStart = total - 8 - zipLength;
-            if (zipStart <= 0) throw new InvalidDataException("Italic is damaged: the app archive is missing.");
+            if (zipStart <= 0) throw new InvalidDataException("Italick is damaged: the app archive is missing.");
 
-            string home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Italic");
+            string home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Italick");
             Directory.CreateDirectory(home);
             string target = Path.Combine(home, "app-" + BuildId);
-            string exe = Path.Combine(target, "Italic.exe");
+            string exe = Path.Combine(target, "Italick.exe");
 
             if (!File.Exists(exe))
             {
@@ -84,7 +84,7 @@ static class Program
         }
         catch (Exception e)
         {
-            MessageBox.Show(e.Message, "Italic", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(e.Message, "Italick", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

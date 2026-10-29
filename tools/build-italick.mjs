@@ -1,6 +1,6 @@
-// Builds the standalone Italic demo: a folder with Italic.exe and the Electron runtime, no npm/Node needed on the target
+// Builds the standalone Italick app: a folder with Italick.exe and the Electron runtime, no npm/Node needed on the target
 // machine. It reuses the Electron already in node_modules and the scene code in src/.
-//   npm run build:italic   ->   dist/Italic-win32-x64/Italic.exe
+//   npm run build:italick  ->   dist/Italick-win32-x64/Italick.exe
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,8 +12,8 @@ const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf
 const short = version.replace(/\.0$/, '') || version; // 1.0.0 -> 1.0, for names people see
 
 const win = process.platform === 'win32';
-const out = path.join(root, 'dist', `Italic-${short}-${process.platform}-${process.arch}`);
-const exe = win ? 'Italic.exe' : 'Italic';
+const out = path.join(root, 'dist', `Italick-${short}-${process.platform}-${process.arch}`);
+const exe = win ? 'Italick.exe' : 'Italick';
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
@@ -27,7 +27,7 @@ if (fs.existsSync(locales)) for (const name of fs.readdirSync(locales)) if (!/^(
 
 const appDir = path.join(out, 'resources', 'app');
 fs.mkdirSync(appDir, { recursive: true });
-for (const item of ['italic-main.js', 'preload.js', 'index.html', 'icon.png', 'src', 'roam']) {
+for (const item of ['italick-main.js', 'preload.js', 'index.html', 'icon.png', 'src', 'roam']) {
   fs.cpSync(path.join(root, item), path.join(appDir, item), { recursive: true });
 }
 // index.html loads three.js through an import map: only these three files are actually used (the package is ~20 MB)
@@ -38,13 +38,13 @@ for (const file of ['build/three.module.js', 'build/three.core.js', 'examples/js
 }
 
 fs.writeFileSync(path.join(appDir, 'package.json'), JSON.stringify({
-  name: 'italic',
-  productName: 'Italic',
+  name: 'italick',
+  productName: 'Italick',
   version,
   private: true,
-  main: 'italic-main.js',
+  main: 'italick-main.js',
   description: "writtenBy('Closegamer', 2026) · closegamer@mail.ru",
   author: 'Closegamer <closegamer@mail.ru>',
 }, null, 2));
 
-console.log(`Italic is ready: ${path.join(out, exe)}`);
+console.log(`Italick is ready: ${path.join(out, exe)}`);

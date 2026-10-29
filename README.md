@@ -1,4 +1,4 @@
-# Italic — a Windows desktop companion
+# Italick — a Windows desktop companion
 
 A 3D character who lives on your Windows desktop: he walks along the taskbar, climbs the tops of your open windows by
 ladder and rope, parachutes down, perches on window edges, sits at his desk and types — and every so often a rubber
@@ -11,20 +11,20 @@ He plants a flag at the left edge of the screen:
 >
 > *Italick, Russian programmer*
 
-**No chat, no voice control, no microphone** — Italic is a show-off, not an assistant. Windows 10/11 (x64) for now.
+**No chat, no voice control, no microphone** — Italick is a show-off, not an assistant. Windows 10/11 (x64) for now.
 Version 1.1.
 
 ## Download and run (no installation)
 
-1. Download **`Italic-1.1-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick/releases/latest).
+1. Download **`Italick-1.1-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick/releases/latest).
 2. Unzip it anywhere (Desktop, USB stick, another PC).
-3. Double-click **`Italic-1.1.exe`**.
+3. Double-click **`Italick-1.1.exe`**.
 
 - No Node.js, no installer, no extra files: the exe is self-contained.
-- **First launch** takes a few seconds — it unpacks itself once to `%LOCALAPPDATA%\Italic`. Later launches are immediate.
+- **First launch** takes a few seconds — it unpacks itself once to `%LOCALAPPDATA%\Italick`. Later launches are immediate.
 - The app lives in the **system tray**. Right-click its icon → **Quit**.
 - **SmartScreen**: the exe is unsigned, so Windows may warn the first time — *More info* → *Run anyway*.
-- Only **one** Italic can run at a time; launching it again brings the running one to the front.
+- Only **one** Italick can run at a time; launching it again brings the running one to the front.
 
 ## What he does
 
@@ -53,21 +53,21 @@ cd Italick
 npm install
 
 npm start                # run the app from source
-npm run build:italic     # dist\Italic-1.1-win32-x64\Italic.exe (folder build)
-npm run bundle:italic    # dist\Italic-1.1.exe (single self-contained file)
+npm run build:italick     # dist\Italick-1.1-win32-x64\Italick.exe (folder build)
+npm run bundle:italick    # dist\Italick-1.1.exe (single self-contained file)
 ```
 
-`build:italic` copies the Electron runtime already in `node_modules`; `bundle:italic` wraps that folder in a small
+`build:italick` copies the Electron runtime already in `node_modules`; `bundle:italick` wraps that folder in a small
 self-extracting launcher (`tools/launcher.cs`, built with the .NET Framework compiler included in Windows).
 
-Useful when testing: `ITALIC_START_MS`, `ITALIC_ROAM_MS`, `ITALIC_WORK_MS`, `ITALIC_BATTLE_MS`, `ITALIC_IDLE_MS`,
-`ITALIC_ACTIONS=idle`, `ITALIC_QUIT_MS`.
+Useful when testing: `ITALICK_START_MS`, `ITALICK_ROAM_MS`, `ITALICK_WORK_MS`, `ITALICK_BATTLE_MS`, `ITALICK_IDLE_MS`,
+`ITALICK_ACTIONS=idle`, `ITALICK_QUIT_MS`.
 
 ## Code
 
 | File | What |
 |---|---|
-| `italic-main.js` | App entry: tray, overlay window, flag show, roam → desk → battle cycle |
+| `italick-main.js` | App entry: tray, overlay window, flag show, roam → desk → battle cycle |
 | `src/app.js` | Scene, behaviour loop, door/flag scenes, drag / throw / fall, working pose |
 | `src/geek.js` | The character: jointed model, textures, poses, ninja and karate outfits |
 | `src/roam.js` | Roaming, ladder/rope climbing, parachuting, statue battles (ninja + karate choreography) |
@@ -78,23 +78,24 @@ Useful when testing: `ITALIC_START_MS`, `ITALIC_ROAM_MS`, `ITALIC_WORK_MS`, `ITA
 | `src/actions/*.js` | Random behaviours: walk, idle, sit |
 | `src/parts.js` | Shared procedural-modelling helpers |
 | `roam/` | Window lister (PowerShell) and platform-edge maths |
-| `tools/build-italic.mjs` | Folder build with the local Electron |
-| `tools/bundle-italic.mjs` + `tools/launcher.cs` | Single-file self-extracting build |
+| `tools/build-italick.mjs` | Folder build with the local Electron |
+| `tools/bundle-italick.mjs` + `tools/launcher.cs` | Single-file self-extracting build |
 
 ## Uninstall
 
-Italic installs nothing into Windows: no registry entries, no services, no startup items, no admin rights needed.
+Italick installs nothing into Windows: no registry entries, no services, no startup items, no admin rights needed.
 
 1. Right-click the tray icon → **Quit**.
-2. Delete `Italic-1.1.exe` (or the whole unzipped folder).
+2. Delete `Italick-1.1.exe` (or the whole unzipped folder).
 3. Delete the files it left behind — press **Win+R**, paste each path, press Enter, and delete the folder:
-   - `%LOCALAPPDATA%\Italic` — the unpacked app (the biggest one, ~300 MB)
-   - `%APPDATA%\Italic` — Electron/Chromium cache and preferences
-   - `%APPDATA%\italic` — the same, left by older builds
+   - `%LOCALAPPDATA%\Italick` — the unpacked app (the biggest one, ~300 MB)
+   - `%APPDATA%\Italick` — Electron/Chromium cache and preferences
+   - `%LOCALAPPDATA%\Italic` and `%APPDATA%\Italic` — the same, left by older builds (spelled "Italic")
+   - `%APPDATA%\italic` — the same, left by even older builds
 
 That is the complete uninstall. To use it again later, just download the zip and run the exe.
 
-If the tray icon is gone but the process still runs: open **Task Manager → Details**, end `Italic.exe`, then delete the
+If the tray icon is gone but the process still runs: open **Task Manager → Details**, end `Italick.exe`, then delete the
 folders above.
 
 ---

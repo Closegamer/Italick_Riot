@@ -1,6 +1,6 @@
-// Bundles the Italic folder build into ONE self-extracting exe: dist/Italic.exe
-//   node tools/bundle-italic.mjs        (npm run bundle:italic)
-// The stub (tools/launcher.cs) carries the ZIP, unpacks it once to %LOCALAPPDATA%\Italic, then starts it.
+// Bundles the Italick folder build into ONE self-extracting exe: dist/Italick.exe
+//   node tools/bundle-italick.mjs        (npm run bundle:italick)
+// The stub (tools/launcher.cs) carries the ZIP, unpacks it once to %LOCALAPPDATA%\Italick, then starts it.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -11,8 +11,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(root, 'dist');
 const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 const short = version.replace(/\.0$/, '') || version;
-const appDir = path.join(dist, `Italic-${short}-${process.platform}-${process.arch}`);
-const out = path.join(dist, `Italic-${short}.exe`);
+const appDir = path.join(dist, `Italick-${short}-${process.platform}-${process.arch}`);
+const out = path.join(dist, `Italick-${short}.exe`);
 
 const run = (cmd, args, opts = {}) => {
   const r = spawnSync(cmd, args, { stdio: 'inherit', ...opts });
@@ -23,10 +23,10 @@ const run = (cmd, args, opts = {}) => {
 if (process.platform !== 'win32') throw new Error('The single-file bundle is built on Windows only.');
 
 console.log('1/4  building the app folder…');
-run(process.execPath, [path.join(root, 'tools', 'build-italic.mjs')]);
+run(process.execPath, [path.join(root, 'tools', 'build-italick.mjs')]);
 
 console.log('2/4  compressing…');
-const zip = path.join(dist, 'italic-payload.zip');
+const zip = path.join(dist, 'italick-payload.zip');
 fs.rmSync(zip, { force: true });
 const quote = (s) => `'${s.replace(/'/g, "''")}'`;
 run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
@@ -43,7 +43,7 @@ console.log('3/4  compiling the launcher…');
 const csc = path.join(process.env.SystemRoot || 'C:\\Windows', 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe');
 const cs = path.join(dist, 'launcher.build.cs');
 const stub = path.join(dist, 'launcher.exe');
-const trailer = path.join(dist, 'italic-payload.trailer');
+const trailer = path.join(dist, 'italick-payload.trailer');
 fs.writeFileSync(cs, fs.readFileSync(path.join(root, 'tools', 'launcher.cs'), 'utf8')
   .replace('__BUILD_ID__', hash.slice(0, 16))
   .replaceAll('__VERSION__', version.split('.').concat(['0', '0', '0']).slice(0, 4).join('.')));
@@ -71,4 +71,4 @@ try {
 if (!fs.existsSync(out)) throw new Error('the single-file exe was not written');
 for (const f of [zip, cs, stub, trailer]) fs.rmSync(f, { force: true });
 
-console.log(`Single-file Italic: ${out} (${(fs.statSync(out).size / 1048576).toFixed(0)} MB)`);
+console.log(`Single-file Italick: ${out} (${(fs.statSync(out).size / 1048576).toFixed(0)} MB)`);

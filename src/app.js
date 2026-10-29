@@ -1,4 +1,4 @@
-﻿import * as THREE from 'three';
+import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createGeek } from './geek.js';
 import { createDoor } from './door.js';
@@ -11,7 +11,7 @@ import * as sfx from './sfx.js';
 // picked at random by weight (the tray menu enables/disables them). The app itself handles being dragged and thrown,
 // and "working" (sitting with the laptop) while the AI is busy.
 const q = new URLSearchParams(location.search);
-const ALLOW_HOME = q.get('home') !== '0'; // the Italic demo disables living in a terminal window
+const ALLOW_HOME = q.get('home') !== '0'; // the Italick app disables living in a terminal window
 const load = (names) => Promise.all(names.filter(Boolean).map((n) => import(`./actions/${n}.js`).then((m) => m.default)));
 let ACTIONS = await load((q.get('actions') ?? 'walk,idle,sit').split(','));
 
@@ -205,7 +205,7 @@ function* flagScene() {
 // screensaver: while the user is away he roams the whole screen (see roam.js); main switches it on and off
 const roamer = createRoam({ k, ctx, scene, during, ease, time: () => t });
 window.setRoam = (on) => { ctx.roam = on; };
-// a statue battle, started by the Italic demo's timer. Roaming is allowed to finish (it packs the ladder/rope away)
+// a statue battle, started by the Italick app's timer. Roaming is allowed to finish (it packs the ladder/rope away)
 // before the fight starts; door/flag/leaving scenes are not interrupted.
 window.battle = () => {
   if (gone || home) return false;
@@ -350,7 +350,7 @@ window.setBusy = (on) => { ctx.busy = on; if (on) window.comeBack(); next(); }; 
 const tag = document.getElementById('tag');
 let tagName = '';
 window.setName = (name) => { tagName = tag.textContent = name; };
-setName(q.get('name') || 'Italic');
+setName(q.get('name') || 'Italick');
 
 // --- mouse: hovering makes the window catch the mouse; drag to carry him, release to drop or throw
 const box = new THREE.Box3();
