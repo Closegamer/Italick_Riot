@@ -14,7 +14,7 @@ He plants a flag at the left edge of the screen:
 
 ## Download and run (no installation)
 
-1. Download **`Italic-1.0-windows.zip`** from the [latest release](https://github.com/Closegamer/desktop-assistant/releases/latest).
+1. Download **`Italic-1.0-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick/releases/latest).
 2. Unzip it anywhere (Desktop, USB stick, another PC).
 3. Double-click **`Italic-1.0.exe`**.
 
@@ -45,7 +45,7 @@ He plants a flag at the left edge of the screen:
 Needs [Node.js](https://nodejs.org/) 20 or newer.
 
 ```powershell
-git clone https://github.com/Closegamer/desktop-assistant.git
+git clone https://github.com/Closegamer/Italick.git
 cd desktop-assistant
 npm install
 
