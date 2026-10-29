@@ -618,6 +618,31 @@ export function createGeek() {
     // ninja landing: deep crouch, one hand down, one back (hips set so the soles stay on the floor)
     crouch: (dt) => apply({ tL: -1.2, tR: -1.2, kL: 1.9, kR: 1.9, aL: -0.7, aR: 0.5, eL: -0.3, eR: -0.2, oL: 0.2, oR: 0.3, hips: 0.53, lean: 0.45 }, dt),
 
+    // karate victory: zenkutsu-dachi (left foot forward, right leg back), one fist chambered at the hip, the other
+    // extended in the finishing punch. Feet are IK-planted so the low stance does not sink through the floor.
+    karateWin: (dt) => {
+      const hipY = 0.58;
+      const l = solveLeg(-0.24, ANKLE_Y, hipY), r = solveLeg(0.42, ANKLE_Y, hipY);
+      apply({
+        tL: l.t, kL: l.k, tR: r.t, kR: r.k,
+        hips: hipY + 0.03, lean: 0.1, twist: -0.16,
+        aL: 0.45, eL: -1.95, oL: 0.05, wL: 0.12, // hikite: fist pulled back to the ribs
+        aR: -1.55, eR: -0.08, oR: 0.06, wR: 0.02, // oi-zuki: punch towards the statue
+      }, dt);
+    },
+
+    // ninja victory: low split stance, left hand in a seal in front of the chest, right hand holding the nunchaku low
+    ninjaWin: (dt) => {
+      const hipY = 0.54;
+      const l = solveLeg(-0.16, ANKLE_Y, hipY), r = solveLeg(0.34, ANKLE_Y, hipY);
+      apply({
+        tL: l.t, kL: l.k, tR: r.t, kR: r.k,
+        hips: hipY + 0.03, lean: 0.26, twist: 0.1,
+        aL: -1.3, eL: -1.9, oL: 0.18, wL: 0.25, // hand seal at the chest
+        aR: -0.55, eR: -0.95, oR: 0.12, wR: 0.18, // nunchaku held low
+      }, dt);
+    },
+
     // sitting on a window edge (origin = the edge), legs dangling over the window
     perch: (t, dt) => apply({
       tL: -1.5, tR: -1.5, kL: 1.45 + 0.22 * Math.sin(t * 2.2), kR: 1.45 + 0.22 * Math.sin(t * 2.2 + 2),

@@ -490,15 +490,58 @@ export function createRoam({ k, ctx, scene, during, ease, time }) {
           if (!statue.alive() || statue.falling()) break;
         }
       }
-      yield* tick(statue, 3.2, (a, dt) => {
-        if (style === 'karate') k.turn(-side * Math.PI / 2); // keep facing the statue while it turns to dust
-        else k.face(-side);
-        k.look(0, -0.15);
-        k.breathe(Math.sin(time() * 1.2));
-        k.stand(time(), dt);
-      });
       if (style === 'karate') {
+        // hold the finishing punch in zenkutsu-dachi while the statue turns to dust, then bow to the viewer
+        yield* during(0.35, (a, dt) => {
+          k.turn(-side * Math.PI / 2);
+          k.look(0, 0.05);
+          k.karateWin(dt);
+          statue.update(dt);
+        });
+        yield* during(1.3, (a, dt) => {
+          k.breathe(Math.sin(time() * 1.2));
+          k.karateWin(dt);
+          statue.update(dt);
+        });
+        yield* during(0.5, (a, dt) => { // turn back to the viewer, feet together
+          k.face(0);
+          k.pose({ tL: 0, tR: 0, kL: 0, kR: 0, hips: 0.85, lean: 0.06, twist: 0, aL: 0, aR: 0, eL: -0.15, eR: -0.15, oL: 0.12, oR: 0.12 }, dt);
+          statue.update(dt);
+        });
+        yield* during(0.45, (a, dt) => { // bow
+          k.pose({ lean: 0.4, aL: 0.15, aR: 0.15, eL: -0.25, eR: -0.25 }, dt);
+          k.look(0, -0.35);
+          statue.update(dt);
+        });
+        yield* during(0.5, (a, dt) => { // rise
+          k.pose({ lean: 0.02, aL: 0, aR: 0, eL: -0.15, eR: -0.15 }, dt);
+          k.look(0, 0);
+          statue.update(dt);
+        });
         yield* dress(false, true);
+      } else {
+        // ninja flourish: spin the nunchaku once, then hold a low stance with a hand seal while the dust settles
+        const sticks = weapon();
+        sticks.show();
+        const hand = new THREE.Vector3();
+        const hold = (angle, swing) => { k.hand('R', hand); sticks.set(hand.x, hand.y, hand.z, angle, swing, 0, S()); };
+        sfx.whoosh();
+        yield* during(0.55, (a, dt) => {
+          k.turn(-side * 0.6);
+          k.look(0, -0.05);
+          k.ninjaWin(dt);
+          hold(-1.4 + 5.0 * a, 0.35 * Math.sin(a * Math.PI * 2));
+          statue.update(dt);
+        });
+        yield* during(1.4, (a, dt) => {
+          k.look(0.08 * Math.sin(a * 3), 0.08);
+          k.breathe(Math.sin(time() * 1.2));
+          k.ninjaWin(dt);
+          hold(1.0, 0.12 * Math.sin(a * 4));
+          statue.update(dt);
+        });
+        sticks.hide();
+        yield* tick(statue, 0.6, (a, dt) => { k.face(0); k.look(0, -0.1); k.stand(time(), dt); });
       }
     } else {
       yield* tick(statue, 3.2, (a, dt) => { k.face(0); k.look(0, -0.15); k.breathe(Math.sin(time() * 1.2)); k.stand(time(), dt); });
