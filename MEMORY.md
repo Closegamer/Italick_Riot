@@ -9,7 +9,7 @@ architecture, features, version or release process changes.
 taskbar, climbs open windows, parachutes, works at a desk, plants a flag, sleeps in a bed, fights rubber Anthropic statues,
 and is occasionally stopped by two policemen.
 
-- Repository: https://github.com/Closegamer/Italick
+- Repository: https://github.com/Closegamer/Italick_Riot
 - Author / developer nick: **Closegamer** — `closegamer@mail.ru`
 - Flag signature: **Italick, Russian programmer**
 - Current version: **1.2.0** (release tag `v1.2`)

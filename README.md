@@ -16,7 +16,7 @@ Version 1.2.
 
 ## Download and run (no installation)
 
-1. Download **`Italick-1.2-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick/releases/latest).
+1. Download **`Italick-1.2-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick_Riot/releases/latest).
 2. Unzip it anywhere (Desktop, USB stick, another PC).
 3. Double-click **`Italick-1.2.exe`**.
 
@@ -51,8 +51,8 @@ Version 1.2.
 Needs [Node.js](https://nodejs.org/) 20 or newer.
 
 ```powershell
-git clone https://github.com/Closegamer/Italick.git
-cd Italick
+git clone https://github.com/Closegamer/Italick_Riot.git
+cd Italick_Riot
 npm install
 
 npm start                # run the app from source
