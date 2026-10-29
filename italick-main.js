@@ -66,7 +66,9 @@ function startLister() {
 const START_MS = Number(process.env.ITALICK_START_MS) || 12000;
 const ROAM_MS = Number(process.env.ITALICK_ROAM_MS) || 55000, WORK_MS = Number(process.env.ITALICK_WORK_MS) || 22000;
 const BATTLE_MS = Number(process.env.ITALICK_BATTLE_MS) || 45000;
-const POLICE_MS = Number(process.env.ITALICK_POLICE_MS) || 60000;
+const POLICE_MIN_MS = 3 * 60 * 1000, POLICE_MAX_MS = 8 * 60 * 1000; // visits are 3-8 minutes apart
+const POLICE_FIXED_MS = Number(process.env.ITALICK_POLICE_MS) || 0; // fixed interval for testing
+const policeDelay = () => POLICE_FIXED_MS || POLICE_MIN_MS + Math.random() * (POLICE_MAX_MS - POLICE_MIN_MS);
 const IDLE_SLEEP_MS = Number(process.env.ITALICK_IDLE_MS) || 5 * 60 * 1000; // no input -> bed
 function show() {
   if (quitting) return;
@@ -92,7 +94,7 @@ function police() {
   later(() => {
     run('police()');
     police();
-  }, POLICE_MS);
+  }, policeDelay());
 }
 
 async function goodbye() {
@@ -159,7 +161,7 @@ if (primary) app.whenReady().then(() => {
     later(() => run(`setFlag(${JSON.stringify(FLAG)})`), 900); // flagTodo: after the door, he carries it to the left edge
     later(show, START_MS); // once the flag is planted
     later(() => { run('battle()'); battles(); }, START_MS + 7000); // first statue, then every ITALICK_BATTLE_MS
-    later(() => { run('police()'); police(); }, START_MS + 20000); // first police visit, then every ITALICK_POLICE_MS
+    police(); // first police visit in 3-8 minutes, then another random 3-8 minutes
     if (process.env.ITALICK_QUIT_MS) later(goodbye, Number(process.env.ITALICK_QUIT_MS)); // testing a clean quit
     if (process.env.ITALICK_POLICE_NOW) later(() => run('police()'), Number(process.env.ITALICK_POLICE_NOW)); // testing
   });

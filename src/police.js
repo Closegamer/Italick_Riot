@@ -85,9 +85,20 @@ export function createCop(variant = 0) {
     turn.rotation.y = ease(turn.rotation.y, facing, dt);
   }
   function point(dt) {
-    arms.R.rotation.z = ease(arms.R.rotation.z, -1.35, dt); // arm out towards the flag
-    arms.R.rotation.x = ease(arms.R.rotation.x, -0.25, dt);
+    // both arms forward, i.e. towards the flag while the body faces it
+    for (const g of [arms.L, arms.R]) {
+      g.rotation.x = ease(g.rotation.x, -1.8, dt);
+      g.rotation.z = ease(g.rotation.z, 0, dt);
+    }
+    head.rotation.x = ease(head.rotation.x, 0.02, dt);
     head.rotation.y = ease(head.rotation.y, -0.35, dt);
+    turn.rotation.y = ease(turn.rotation.y, facing, dt);
+  }
+  function talk(t, dt) {
+    head.rotation.x = ease(head.rotation.x, 0.07 + 0.05 * Math.sin(t * 7 + variant), dt);
+    head.rotation.y = 0.18 * Math.sin(t * 4 + variant);
+    arms.L.rotation.x = 0.14 * Math.sin(t * 5 + variant);
+    arms.R.rotation.x = -0.14 * Math.sin(t * 5 + 1 + variant);
     turn.rotation.y = ease(turn.rotation.y, facing, dt);
   }
   function laugh(t, dt) {
@@ -110,7 +121,7 @@ export function createCop(variant = 0) {
   }
 
   return {
-    root, face, walk, stand, read, point, laugh,
+    root, face, walk, stand, read, point, talk, laugh,
     place: (x, y, scale, dir) => {
       root.position.set(x, y, 0);
       root.scale.setScalar(scale);

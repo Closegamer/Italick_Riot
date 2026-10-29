@@ -38,9 +38,9 @@ Version 1.1.
   or into a karate man in a white kimono, then beats the statue until it bursts into dust. Punches, kicks and fights have
   synthesized sounds. Statues obey the same gravity as he does: knock one off a window and it falls; hit the taskbar and it
   shatters.
-- **Police visits**: now and then two policemen slowly walk in from the right side of the screen. They stop by the flag,
-  Italick shows them his Russian passport, they read it, point at the flag, talk it over and walk away to the left,
-  laughing.
+- **Police visits**: every 3–8 minutes, two policemen slowly walk in from the right side of the screen. They stop by the
+  flag, Italick shows them his Russian passport, they read it, both turn to the flag and point at it, discuss it with each
+  other, have a good laugh and walk away to the left.
 - **Sleeps when you are away**: after five minutes without keyboard or mouse activity, a bed pops up beside him, he
   climbs in, lies down with floating Zzz and soft snores. Any input wakes him and the bed disappears.
 - **Grabbable**: hover over him, then drag him anywhere. Let go to drop him or throw him. While a battle or a cinematic

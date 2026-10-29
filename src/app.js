@@ -369,17 +369,52 @@ function* policeScene() {
     if (a > 0.55 && !said) { sfx.mumble(); said = true; }
   });
 
-  yield* during(1.4, (a, dt) => {
+  // they walk up to the flag, point at it with both hands and discuss it
+  copA.face(-1);
+  copB.face(-1);
+  const flagStopA = FLAG_X + flag.width + 0.15 * S;
+  const flagStopB = flagStopA + 0.74 * S;
+  const startAx = copA.x(), startBx = copB.x();
+  phA = phB = 0;
+  yield* during(1.5, (a, dt) => {
+    const e = ease(a);
+    copA.root.position.x = startAx + (flagStopA - startAx) * e;
+    copB.root.position.x = startBx + (flagStopB - startBx) * e;
+    phA += (1.2 * S * dt / (0.35 * S)) * Math.PI;
+    copA.walk(phA, dt);
+    copB.walk(phA, dt);
     holdPassport(dt);
-    copA.point(dt); // he points at the flag
-    copB.read(t, dt);
+  });
+  sfx.mumble();
+  yield* during(4.0, (a, dt) => {
+    holdPassport(dt);
+    copA.point(dt);
+    copB.point(dt); // both hands towards the flag
   });
 
-  yield* during(1.3, (a, dt) => {
+  // they turn to each other and talk it over
+  copA.face(1);
+  copB.face(-1);
+  yield* during(0.7, (a, dt) => {
     holdPassport(dt);
-    copA.read(t, dt);
-    copB.read(t, dt);
-    if (a > 0.2 && said) { said = false; sfx.mumble(); }
+    copA.stand(t, dt);
+    copB.stand(t, dt);
+  });
+  sfx.mumble();
+  let nextTalk = t + 1.2;
+  yield* during(2.6, (a, dt) => {
+    holdPassport(dt);
+    copA.talk(t, dt);
+    copB.talk(t + 0.4, dt);
+    if (t > nextTalk) { sfx.mumble(); nextTalk = t + 1.2; }
+  });
+
+  // a good laugh together, then they leave
+  sfx.laugh();
+  yield* during(1.0, (a, dt) => {
+    holdPassport(dt);
+    copA.laugh(t, dt);
+    copB.laugh(t + 0.3, dt);
   });
 
   passport.hide();
