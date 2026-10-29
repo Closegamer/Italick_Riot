@@ -12,8 +12,8 @@ and is occasionally stopped by two policemen.
 - Repository: https://github.com/Closegamer/Italick_Riot
 - Author / developer nick: **Closegamer** — `closegamer@mail.ru`
 - Flag signature: **Italick, Russian programmer**
-- Current version: **1.3.0** (next release tag `v1.3`; v1.2 is the latest published)
-- Latest download: `Italick-1.2-windows.zip` (v1.3 build pending)
+- Current version: **1.3.0** (release tag `v1.3`)
+- Latest download: `Italick-1.3-windows.zip`
 - Important spelling: the character/app is **Italick**, not “Italic”. Keep it that way everywhere.
 - Windows 10/11 x64 only for now.
 
@@ -156,7 +156,7 @@ npm start
 ## Current state
 
 - Latest feature work: victory poses after statue fights (karate finishing stance and bow, ninja nunchaku flourish and hand seal).
-- Latest release: **v1.2** (`Italick-1.2-windows.zip`); **v1.3** is prepared but not yet published.
-- Recent commits: `48b8f0e Add victory poses after statue fights`.
+- Latest release: **v1.3** (`Italick-1.3-windows.zip`).
+- Recent commits: `54bceae Bump version to 1.3 and update description`.
 
 _Last updated: 2026-10-29._
