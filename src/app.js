@@ -1,7 +1,6 @@
 ﻿import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createGeek } from './geek.js';
-import { startWake } from './wake.js';
 import { createDoor } from './door.js';
 import { createFlag, GRIP } from './flag.js';
 import { createRoam } from './roam.js';
@@ -49,7 +48,7 @@ const k = createGeek();
 k.root.position.set(W * 0.3, ctx.ground, 0);
 k.root.visible = false; // until he walks out of his door
 
-// Windows can squeeze the overlay (e.g. when Voice access docks its bar) and main then restores it. The window's top
+// Windows can squeeze the overlay (e.g. when a toolbar docks) and main then restores it. The window's top
 // stays put, so the scene keeps its coordinates (H = the height at load, scene y = H - window y) and only the camera's
 // bottom edge follows the new height: him, his door, desk and ropes all stay where they were placed.
 addEventListener('resize', () => {
@@ -277,44 +276,14 @@ window.comeBack(); // his entrance when the app starts
 window.setActions = async (names) => { ACTIONS = await load(names); next(); };
 window.setAvatarSize = setSize;
 window.setBusy = (on) => { ctx.busy = on; if (on) window.comeBack(); next(); }; // a task calls him back to work
-let talking = false;
-let quietSince = 0; // when he last stopped talking
-window.setTalking = (on) => { if (talking && !on) quietSince = performance.now(); talking = on; }; // the chat is reading a reply aloud
 
 // name tag above his head while the mouse is on him
 const tag = document.getElementById('tag');
 let tagName = '';
 window.setName = (name) => { tagName = tag.textContent = name; };
-setName(q.get('name') || 'Assistant');
+setName(q.get('name') || 'Italic');
 
-// he heard his name: "Yes?" above his head for a few seconds, and he turns to the user
-let tagTimer;
-window.heardName = () => {
-  window.comeBack();
-  clearTimeout(tagTimer);
-  tag.textContent = 'Yes?';
-  tag.hidden = false;
-  k.face(0);
-  tagTimer = setTimeout(() => { tag.hidden = !over; tag.textContent = tagName; }, 4000);
-};
-
-// always-on listening for his name (tray > Listen for his name); phrases go to main for local transcription
-let stopWake = null;
-window.setWake = async (on) => {
-  stopWake?.();
-  // a phrase that starts while he's speaking (or just after) is his own voice from the speakers: it's dropped unheard
-  let echo = false;
-  stopWake = on ? await startWake(
-    (samples) => { if (echo) bridge.send('wake-speech', false); else bridge.send('wake-audio', samples.buffer); },
-    (talk) => {
-      if (talk) echo = talking || performance.now() - quietSince < 800;
-      if (!echo) bridge.send('wake-speech', talk);
-    },
-  ) : null;
-};
-setWake(q.get('wake') === '1');
-
-// --- mouse: hovering makes the window catch the mouse; drag to carry him, release to drop or throw, click for chat
+// --- mouse: hovering makes the window catch the mouse; drag to carry him, release to drop or throw
 const box = new THREE.Box3();
 function rect() {
   box.setFromObject(k.root);
@@ -367,8 +336,6 @@ addEventListener('mouseup', (e) => {
     mode = 'fall';
     const cap = 2500; // px/s, so a flick doesn't launch him off the screen
     vel = { x: Math.max(-cap, Math.min(cap, vel.x)), y: Math.max(-cap, Math.min(cap, vel.y)) };
-  } else {
-    bridge.send('toggle-chat', rect());
   }
   drag = null;
   document.body.style.cursor = over ? 'grab' : '';
@@ -459,7 +426,6 @@ renderer.setAnimationLoop(() => {
     tag.style.top = `${r.top - 6}px`;
   }
   if (flag.root.visible) flag.wave(t);
-  k.talk(talking ? t : null);
   key.position.copy(p).add(KEY_DIR); // light follows him
   renderer.render(scene, camera);
 });

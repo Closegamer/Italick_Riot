@@ -1,13 +1,12 @@
 {
-  "name": "desktop-assistant",
+  "name": "italic",
   "version": "1.0.0",
-  "description": "A 3D desktop character that walks around your screen and gets things done with DeepSeek — writtenBy('Closegamer', 2026) · closegamer@mail.ru",
+  "description": "Italic — a 3D Windows desktop companion: flag, roaming and Anthropic statue battles. writtenBy('Closegamer', 2026) · closegamer@mail.ru",
   "author": "Closegamer <closegamer@mail.ru>",
-  "main": "main.js",
+  "main": "italic-main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "start:italic": "electron italic-main.js",
     "build:italic": "node tools/build-italic.mjs",
     "bundle:italic": "node tools/bundle-italic.mjs"
   },

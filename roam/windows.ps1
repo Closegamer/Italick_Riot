@@ -1,6 +1,6 @@
 # Lists the visible top-level windows 4 times a second, topmost first, as one JSON line whenever the list changes:
 # [[hwnd, left, top, right, bottom, isTerminal], ...] in physical screen pixels (the visible frame, without the invisible resize border).
-param([int]$Skip = 0) # our own process id: his overlay and chat are not platforms
+param([int]$Skip = 0) # our own process id: his overlay is not a platform
 Add-Type @'
 using System; using System.Collections.Generic; using System.Runtime.InteropServices;
 public static class Win {

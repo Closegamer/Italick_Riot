@@ -134,7 +134,6 @@ if (primary) app.whenReady().then(() => {
     actions: process.env.ITALIC_ACTIONS || ACTIONS.join(','), // ITALIC_ACTIONS=idle keeps him still (testing)
     size: String(SIZE),
     name: 'Italic',
-    wake: '0', // no microphone: he doesn't listen to anything
     home: '0', // he never moves into a terminal window
   } });
 
