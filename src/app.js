@@ -13,13 +13,12 @@ import * as sfx from './sfx.js';
 // picked at random by weight (the tray menu enables/disables them). The app itself handles being dragged and thrown,
 // and "working" (sitting with the laptop) while the AI is busy.
 const q = new URLSearchParams(location.search);
-const ALLOW_HOME = q.get('home') !== '0'; // the Italick app disables living in a terminal window
 const load = (names) => Promise.all(names.filter(Boolean).map((n) => import(`./actions/${n}.js`).then((m) => m.default)));
 let ACTIONS = await load((q.get('actions') ?? 'walk,idle,sit').split(','));
 
 let W = innerWidth; const H = innerHeight; // H: the camera's top edge, fixed (see resize)
 // scene is in pixels with y up; ground = top edge of the taskbar
-// ground: the floor he stands on (the taskbar top, or the bottom of the window he lives in); x1..x2: where he may walk
+// ground: the floor he stands on (the taskbar top); x1..x2: where he may walk
 const ctx = { W, H, SIZE: Number(q.get('size') || 130), ground: H - Number(q.get('ground') ?? H), x1: 0, x2: W, busy: false };
 const TASKBAR = ctx.ground;
 
@@ -80,8 +79,6 @@ function setSize(px) {
 setSize(ctx.SIZE);
 
 let action = null, mode = 'act', t = 0; // mode: act (actions / working) | held (dragged) | fall
-let typingUntil = 0; // while he types into his terminal (main calls typing(seconds))
-window.typing = (sec) => { typingUntil = t + sec; approach = null; };
 let approach = null, approachPhase = 0, farFor = 0; // walking over to the mouse pointer: target x; how long it's been far away
 function next() {
   action?.stop(k, ctx);
@@ -156,7 +153,7 @@ let flagInfo = null, flagTodo = false, flagUp = false; // the latest info; a new
 window.setFlag = (info) => {
   const sameBrain = flagInfo?.brain.join('/') === info.brain.join('/');
   flagInfo = info;
-  if (flagUp && (sameBrain || home)) flag.draw(info); // location news (or he's off in a terminal): repainted where it stands
+  if (flagUp && sameBrain) flag.draw(info); // the same brain: just repaint it where it stands
   else flagTodo = true;
 };
 // pace: 1 = his stroll; flag errands hurry (same steps, quicker), the leisurely walk is for wandering about
@@ -212,7 +209,7 @@ window.setRoam = (on) => { ctx.roam = on; };
 // a statue battle, started by the Italick app's timer. Roaming is allowed to finish (it packs the ladder/rope away)
 // before the fight starts; door/flag/leaving scenes are not interrupted.
 window.battle = () => {
-  if (gone || home) return false;
+  if (gone) return false;
   if (script && script !== roamScript) return false;
   if (script && script === roamScript) { ctx.roam = false; battleQueued = true; return true; }
   battleQueued = false;
@@ -222,7 +219,7 @@ window.battle = () => {
 
 // two policemen stop Italick near the flag: he shows his passport, they read it, point at the flag and leave laughing
 window.police = () => {
-  if (gone || home || ctx.busy || bye) return false;
+  if (gone || ctx.busy || bye) return false;
   if (script && script !== roamScript) return false;
   if (script && script === roamScript) { ctx.roam = false; policeQueued = true; return true; }
   policeQueued = false;
@@ -449,52 +446,6 @@ function* policeScene() {
   p.y = ctx.ground;
 }
 
-// Home: drop him into a terminal window and he lives there - on its bottom edge, within its width, carried along when
-// the window moves. Closing or minimizing it sends him back down to the taskbar.
-// ponytail: he's drawn over everything, so a window lying on top of his terminal doesn't hide him
-let wins = [], home = null; // all visible windows (topmost first, window px from the top-left); his terminal
-const INSET = 12; // px between the window's bottom border and his feet
-function moveIn(w) {
-  if (home?.id !== w.id) bridge.send('home', w.id); // main types "here" commands into this window
-  home = w;
-  ctx.ground = H - (w.b - INSET);
-  ctx.x1 = w.l + 0.35 * ctx.SIZE;
-  ctx.x2 = Math.max(ctx.x1 + 1, w.r - 0.35 * ctx.SIZE);
-}
-function moveOut() {
-  if (home) bridge.send('home', null);
-  home = null;
-  Object.assign(ctx, { ground: TASKBAR, x1: 0, x2: W });
-}
-window.setWindows = (list) => {
-  wins = list;
-  if (!home) return;
-  const w = list.find((r) => r.id === home.id);
-  const p = k.root.position, settled = mode === 'act' && !script && !gone;
-  if (!w) { // closed or minimized: down to the taskbar (by parachute, from up there)
-    moveOut();
-    if (settled) { mode = 'fall'; vel = { x: 0, y: 0 }; }
-    return;
-  }
-  const dx = w.l - home.l;
-  moveIn(w);
-  if (settled) { // the window moved or was resized: he goes with it
-    p.x = Math.max(ctx.x1, Math.min(ctx.x2, p.x + dx));
-    p.y = ctx.ground;
-  }
-};
-// "leave the window": down to the taskbar (by parachute), back on top of everything
-window.leaveHome = () => {
-  if (!home) return;
-  moveOut();
-  if (mode === 'act' && !script && !gone) { action?.stop(k, ctx); action = null; mode = 'fall'; vel = { x: 0, y: 0 }; }
-};
-// where he was let go: the topmost window under the cursor, if it's a terminal, becomes his home; anywhere else, not
-function landAt(x, y) {
-  const w = wins.find((r) => x >= r.l && x <= r.r && y >= r.t && y <= r.b);
-  if (ALLOW_HOME && w?.term && w.b - w.t > 1.2 * ctx.SIZE) moveIn(w);
-  else moveOut();
-}
 window.setLook = k.setLook;
 
 next();
@@ -562,7 +513,6 @@ addEventListener('mousedown', (e) => {
 addEventListener('mouseup', (e) => {
   if (!drag) return;
   if (drag.moved) {
-    landAt(e.clientX, e.clientY);
     mode = 'fall';
     const cap = 2500; // px/s, so a flick doesn't launch him off the screen
     vel = { x: Math.max(-cap, Math.min(cap, vel.x)), y: Math.max(-cap, Math.min(cap, vel.y)) };
@@ -598,10 +548,10 @@ renderer.setAnimationLoop(() => {
       mode = 'act';
       next();
     }
-  } else if (script || (!gone && (bye || (flagTodo && !home) || (ctx.roam && !home)))) { // at home in a window, the screensaver leaves him be
+  } else if (script || (!gone && (bye || flagTodo || ctx.roam))) {
     if (!script) {
       if (bye) run(leaving());
-      else if (flagTodo && !home) run(flagScene());
+      else if (flagTodo) run(flagScene());
       else { run(roamer.roam()); roamScript = script; }
     }
     if (script.next(dt).done) {
@@ -631,11 +581,6 @@ renderer.setAnimationLoop(() => {
     if (action.update(k, dt, ctx)) next();
   } else {
     k.stand(t, dt);
-  }
-  // typing a command into his terminal: fingers tap on an invisible keyboard for a few seconds
-  if (t < typingUntil && mode === 'act' && !script && !ctx.busy && !gone) {
-    const tap = (ph) => 0.15 * Math.max(0, Math.sin(t * 17 + ph));
-    k.pose({ aL: -1.15, aR: -1.15, eL: -0.9 + tap(0), eR: -0.9 + tap(1.7), oL: 0.05, oR: 0.05, lean: 0.1 }, dt);
   }
   // he keeps an eye on the pointer, and when it's more than two of him away for half a second he walks over (along his floor)
   if (pointer && mode === 'act' && !script && !ctx.busy && !gone) {

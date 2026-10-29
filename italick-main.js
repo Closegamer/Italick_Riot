@@ -55,8 +55,8 @@ function startLister() {
     try { list = JSON.parse(line); } catch { return; }
     // ponytail: primary display only, and one scale factor for all windows
     const d = screen.getPrimaryDisplay(), f = d.scaleFactor;
-    const rects = list.map(([id, l, t, r, b, term]) => ({ id: String(id), l: l / f - d.bounds.x, t: t / f - d.bounds.y, r: r / f - d.bounds.x, b: b / f - d.bounds.y, term }));
-    run(`setEdges(${JSON.stringify(topEdges(rects))}); setWindows(${JSON.stringify(rects)})`);
+    const rects = list.map(([id, l, t, r, b]) => ({ id: String(id), l: l / f - d.bounds.x, t: t / f - d.bounds.y, r: r / f - d.bounds.x, b: b / f - d.bounds.y }));
+    run(`setEdges(${JSON.stringify(topEdges(rects))})`);
   });
   lister.on('close', () => { if (!quitting) setTimeout(startLister, 3000); }); // keep it alive
 }
@@ -170,7 +170,6 @@ if (primary) app.whenReady().then(() => {
     actions: process.env.ITALICK_ACTIONS || ACTIONS.join(','), // ITALICK_ACTIONS=idle keeps him still (testing)
     size: String(SIZE),
     name: 'Italick',
-    home: '0', // he never moves into a terminal window
   } });
 
   tray = new Tray(path.join(__dirname, 'icon.png'));
