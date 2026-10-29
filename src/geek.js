@@ -13,6 +13,40 @@ export const LOOK = {
 const phys = (o) => new THREE.MeshPhysicalMaterial(o);
 const std = (o) => new THREE.MeshStandardMaterial(o);
 
+// Grayscale bump maps give the flat canvas textures some surface relief at no texture-file cost.
+function bumpTex(draw, rx = 2, ry = 2) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#808080';
+  g.fillRect(0, 0, 256, 256);
+  draw(g, 256, 256);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.NoColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(rx, ry);
+  t.anisotropy = 8;
+  return t;
+}
+const knitBump = (rx, ry) => bumpTex((g, w, h) => {
+  g.lineWidth = 2;
+  for (let y = 0; y < h; y += 16) for (let x = 0; x < w; x += 16) {
+    g.strokeStyle = '#b4b4b4';
+    g.beginPath(); g.moveTo(x + 2, y + 3); g.lineTo(x + 6, y + 12); g.lineTo(x + 12, y + 3); g.stroke();
+    g.strokeStyle = '#4c4c4c';
+    g.beginPath(); g.moveTo(x + 3, y + 5); g.lineTo(x + 6, y + 13); g.lineTo(x + 11, y + 5); g.stroke();
+  }
+}, rx, ry);
+const denimBump = bumpTex((g, w, h) => {
+  g.lineWidth = 1;
+  for (let i = -h; i < w; i += 4) {
+    g.strokeStyle = '#a8a8a8';
+    g.beginPath(); g.moveTo(i, h); g.lineTo(i + h, 0); g.stroke();
+    g.strokeStyle = '#585858';
+    g.beginPath(); g.moveTo(i + 2, h); g.lineTo(i + h + 2, 0); g.stroke();
+  }
+}, 3, 3);
+
 // white reindeer silhouette, ~40 units long, facing right (dir = 1) or left (dir = -1)
 function reindeer(g, x, y, size, dir) {
   g.save();
@@ -133,16 +167,16 @@ const lidTex = canvasTex(512, 384, (g) => {
 
 const M = {
   skin: phys({ color: LOOK.skin, roughness: 0.55, sheen: 0.3, sheenColor: 0xffd8c0 }),
-  sweater: phys({ map: sweaterTex(LOOK), roughness: 0.9, sheen: 1, sheenColor: 0xff9aa8, sheenRoughness: 0.8 }),
-  sleeve: phys({ map: sleeveTex(LOOK), roughness: 0.9, sheen: 1, sheenColor: 0xff9aa8, sheenRoughness: 0.8 }),
+  sweater: phys({ map: sweaterTex(LOOK), bumpMap: knitBump(4, 2), bumpScale: 0.02, roughness: 0.9, sheen: 1, sheenColor: 0xff9aa8, sheenRoughness: 0.8 }),
+  sleeve: phys({ map: sleeveTex(LOOK), bumpMap: knitBump(2, 2), bumpScale: 0.015, roughness: 0.9, sheen: 1, sheenColor: 0xff9aa8, sheenRoughness: 0.8 }),
   rib: std({ color: 0x8e0e21, roughness: 0.9 }),
-  jeans: std({ map: jeansTex(LOOK), roughness: 0.85 }),
+  jeans: std({ map: jeansTex(LOOK), bumpMap: denimBump, bumpScale: 0.012, roughness: 0.85 }),
   shoe: std({ color: 0xf4f4f4, roughness: 0.6 }),
   stripe: std({ color: 0xb3122a, roughness: 0.6 }),
   sole: std({ color: 0x2b2d33, roughness: 0.8 }),
   hair: phys({ color: 0x3b2416, roughness: 0.5, sheen: 0.6, sheenColor: 0x8a5a3a }),
   frame: std({ color: 0x15161a, roughness: 0.3 }),
-  lens: phys({ color: 0xcfe6ff, roughness: 0, transparent: true, opacity: 0.18 }),
+  lens: phys({ color: 0xdfefff, roughness: 0.05, transparent: true, opacity: 0.22, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.6 }),
   alu: std({ color: 0xc9cdd3, metalness: 0.8, roughness: 0.35 }),
   lid: std({ map: lidTex, metalness: 0.5, roughness: 0.4 }),
   keys: std({ color: 0x1d1f24, roughness: 0.7 }),
@@ -183,7 +217,7 @@ function face(A, B, jaw, L = LOOK) {
 function head(parent) {
   const h = new THREE.Group();
   h.position.set(0, 0.8, 0.01);
-  h.scale.setScalar(1.6); // big cartoon head
+  h.scale.setScalar(1.45); // big cartoon head, a little closer to adult proportions
   parent.add(h);
   const A = 0.108, B = 0.128, C = 0.115, JAW = 0.25;
   const skull = mesh(headGeo(A, B, C, JAW), phys({ map: face(A, B, JAW), roughness: 0.55, sheen: 0.3, sheenColor: 0xffd8c0 }), h);
@@ -242,7 +276,8 @@ function head(parent) {
   h.add(messy);
   const tufts = [[-0.06, 0.1, 0.05, 0.045], [-0.02, 0.115, 0.06, 0.05], [0.025, 0.112, 0.06, 0.05], [0.065, 0.098, 0.045, 0.042],
     [-0.04, 0.085, 0.085, 0.035], [0.01, 0.088, 0.09, 0.035], [0.05, 0.08, 0.08, 0.03], [0, 0.135, 0.0, 0.055],
-    [-0.085, 0.07, 0.0, 0.04], [0.088, 0.065, 0.0, 0.04], [0.04, 0.13, -0.05, 0.05], [-0.045, 0.13, -0.04, 0.05]];
+    [-0.085, 0.07, 0.0, 0.04], [0.088, 0.065, 0.0, 0.04], [0.04, 0.13, -0.05, 0.05], [-0.045, 0.13, -0.04, 0.05],
+    [-0.08, 0.115, 0.05, 0.03], [0.08, 0.115, 0.05, 0.03], [-0.03, 0.15, 0.03, 0.04], [0.035, 0.148, 0.025, 0.038]];
   for (const [x, y, z, r] of tufts) blob(messy, M.hair, [x, y, z], [r, r * 0.8, r]);
   h.userData.look = (L) => {
     const old = skull.material.map;
@@ -307,7 +342,7 @@ const THIGH = 0.37, SHIN = 0.36, LEG = THIGH + SHIN; // bone lengths, in body un
 const ANKLE_Y = 0.09; // height of the ankle joint that puts the sole on y = 0
 const STANCE = {
   tL: 0, tR: 0, kL: 0, kR: 0, fL: 0, fR: 0, toeL: 0, toeR: 0,
-  aL: 0, aR: 0, eL: -0.15, eR: -0.15, oL: 0.12, oR: 0.12,
+  aL: 0, aR: 0, eL: -0.15, eR: -0.15, oL: 0.12, oR: 0.12, wL: 0, wR: 0,
   hips: 0.85, hipX: 0, list: 0, roll: 0, lean: 0, twist: 0, desk: 0, chair: 0,
 }; // hips 0.85 puts the soles on y = 0
 
@@ -353,6 +388,7 @@ export function createGeek() {
   for (const [S, s] of [['L', 1], ['R', -1]]) {
     const thigh = seg(hips, M.jeans, [s * 0.1, -0.03, 0], THIGH, 0.085, 0.066);
     const shin = seg(thigh.end, M.jeans, [0, 0, 0], SHIN, 0.064, 0.05);
+    blob(shin.pivot, M.jeans, [0, -0.16, -0.028], [0.06, 0.095, 0.05]); // calf
     const ankle = new THREE.Group(); // heel/sole pitch; the whole shoe hangs here
     shin.end.add(ankle);
     const toe = new THREE.Group(); // ball of the foot: bends up during toe-off
@@ -378,11 +414,23 @@ export function createGeek() {
   const h = head(spine);
   const arms = {};
   for (const [S, s] of [['L', 1], ['R', -1]]) {
+    blob(spine, M.sleeve, [s * 0.195, 0.455, 0], [0.075, 0.075, 0.07]); // deltoid: softens the shoulder joint
     const upper = seg(spine, M.sleeve, [s * 0.215, 0.46, 0], 0.3, 0.062, 0.052);
     const fore = seg(upper.end, M.sleeve, [0, 0, 0], 0.27, 0.052, 0.044);
     ring(fore.end, M.rib, [0, 0.02, 0], [0, 1, 0], 0.044, 0.012); // cuff
-    blob(fore.end, M.skin, [0, -0.06, 0.005], [0.042, 0.06, 0.028]); // hand
-    arms[S] = { upper: upper.pivot, fore: fore.pivot, hand: fore.end };
+    // wrist joint, palm, three fused fingers and a thumb: a hand silhouette instead of one blob
+    const wrist = new THREE.Group();
+    wrist.position.set(0, -0.005, 0);
+    fore.end.add(wrist);
+    const grip = new THREE.Group();
+    grip.position.set(0, -0.05, 0.008);
+    wrist.add(grip);
+    blob(wrist, M.skin, [0, -0.045, 0.006], [0.038, 0.052, 0.024]); // palm
+    for (let i = -1; i <= 1; i++) {
+      limb(wrist, M.skin, [i * 0.014, -0.088, 0.006], [i * 0.014, -0.112, 0.016], 0.0085, 0.0065);
+    }
+    limb(wrist, M.skin, [-s * 0.03, -0.052, 0.008], [-s * 0.046, -0.078, 0.018], 0.011, 0.008); // thumb
+    arms[S] = { upper: upper.pivot, fore: fore.pivot, wrist, hand: grip };
   }
   // outfits: ninja (rope/climb battles) and karate (kimono battles)
   const cloth = std({ color: 0x17181d, roughness: 0.85 }), red = std({ color: 0xc8102e, roughness: 0.7 });
@@ -465,6 +513,7 @@ export function createGeek() {
       legs[S].toe.rotation.x = cur['toe' + S];
       arms[S].upper.rotation.set(cur['a' + S], 0, s * cur['o' + S]);
       arms[S].fore.rotation.x = cur['e' + S];
+      arms[S].wrist.rotation.x = cur['w' + S];
     }
     hips.position.set(cur.hipX, cur.hips, 0);
     hips.rotation.set(0, cur.twist, cur.list); // pelvis turns with the forward leg and drops on the swing side
@@ -499,7 +548,7 @@ export function createGeek() {
     },
     breathe: (b) => spine.scale.set(1 + 0.006 * b, 1 + 0.008 * b, 1 + 0.015 * b),
 
-    stand: (t, dt) => apply({ aL: 0.04 * Math.sin(t * 0.6), aR: -0.04 * Math.sin(t * 0.6) }, dt),
+    stand: (t, dt) => apply({ aL: 0.04 * Math.sin(t * 0.6), aR: -0.04 * Math.sin(t * 0.6), wL: 0.06, wR: 0.06 }, dt),
 
     // phase advances with distance walked. Feet are planted with IK: the stance foot moves backwards in body space at
     // exactly the body's forward speed, so it stays pinned to the screen while the hips travel over it.
@@ -522,6 +571,7 @@ export function createGeek() {
         tL: l.t, kL: l.k, fL: lf.pitch - (l.t + l.k), toeL: lf.toe,
         tR: r.t, kR: r.k, fR: rf.pitch - (r.t + r.k), toeR: rf.toe,
         aL: 0.4 * s, aR: -0.4 * s, eL: -0.25 - 0.3 * Math.max(0, -c), eR: -0.25 - 0.3 * Math.max(0, c), oL: 0.08, oR: 0.08,
+        wL: 0.06 - 0.08 * s, wR: 0.06 + 0.08 * s,
         hips: hipY + 0.03, hipX: sway, list, roll: -list * 0.8, lean: 0.07, twist: -0.13 * s,
       }, dt);
     },
@@ -571,7 +621,7 @@ export function createGeek() {
     // sitting on a window edge (origin = the edge), legs dangling over the window
     perch: (t, dt) => apply({
       tL: -1.5, tR: -1.5, kL: 1.45 + 0.22 * Math.sin(t * 2.2), kR: 1.45 + 0.22 * Math.sin(t * 2.2 + 2),
-      fL: 0.35, fR: 0.35, aL: -0.45, aR: -0.45, eL: -0.75, eR: -0.75, oL: 0.1, oR: 0.1, hips: 0.12,
+      fL: 0.35, fR: 0.35, aL: -0.45, aR: -0.45, eL: -0.75, eR: -0.75, oL: 0.1, oR: 0.1, wL: 0.12, wR: 0.12, hips: 0.12,
     }, dt),
 
     // hanging under the parachute: hands up on the lines, legs dangling
@@ -583,7 +633,7 @@ export function createGeek() {
     // resting on the chair (origin = floor), legs swinging
     sit: (t, dt) => apply({
       tL: -1.5, tR: -1.5, kL: 1.3 + 0.2 * Math.sin(t * 2.2), kR: 1.3 + 0.2 * Math.sin(t * 2.2 + 2),
-      fL: 0.35, fR: 0.35, aL: -0.45, aR: -0.45, eL: -0.75, eR: -0.75, oL: 0.1, oR: 0.1, hips: 0.5, chair: 1,
+      fL: 0.35, fR: 0.35, aL: -0.45, aR: -0.45, eL: -0.75, eR: -0.75, oL: 0.1, oR: 0.1, wL: 0.12, wR: 0.12, hips: 0.5, chair: 1,
     }, dt),
 
     // on the chair at the desk (origin = floor), typing on the laptop; the screen glows on his face
@@ -591,7 +641,7 @@ export function createGeek() {
       const tap = (p) => 0.08 * Math.max(0, Math.sin(t * 17 + p) * Math.sin(t * 3.1 + p));
       apply({
         tL: -1.5, tR: -1.5, kL: 1.5, kR: 1.5, hips: 0.5,
-        aL: -0.45, aR: -0.45, eL: -1.1 + tap(0), eR: -1.1 + tap(1.7), oL: 0.05, oR: 0.05, desk: 1,
+        aL: -0.45, aR: -0.45, eL: -1.1 + tap(0), eR: -1.1 + tap(1.7), oL: 0.05, oR: 0.05, wL: 0.15, wR: 0.15, desk: 1,
       }, dt);
       desk.light.intensity = 0.6 + 0.1 * Math.sin(t * 9);
     },
