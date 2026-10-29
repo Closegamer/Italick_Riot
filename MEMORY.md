@@ -21,6 +21,8 @@ and is occasionally stopped by two policemen.
 
 - **No chat, no voice control, no microphone, no AI assistant.** Those were removed. Do not reintroduce `main.js`,
   `chat.html`, `voice/`, or wake-word code.
+- **Commit as `Closegamer <closegamer@mail.ru>` only.** Never add `Co-Authored-By:` or other AI co-author trailers:
+  they create extra entries in GitHub's contributor list.
 - The single-file exe is the main deliverable. It must stay self-contained (no Node.js on the target machine).
 - Only one instance may run (`app.setName('Italick')` + `requestSingleInstanceLock`).
 - Keep the app usable while roaming: he can be grabbed and dragged with the mouse; grabbing cancels roaming cleanly.
