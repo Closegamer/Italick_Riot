@@ -68,6 +68,8 @@ Useful when testing: `ITALICK_START_MS`, `ITALICK_ROAM_MS`, `ITALICK_WORK_MS`, `
 
 ## Code
 
+Project memory (architecture, conventions, release checklist): **[MEMORY.md](MEMORY.md)**.
+
 | File | What |
 |---|---|
 | `italick-main.js` | App entry: tray, overlay window, flag show, roam → desk → battle cycle |
