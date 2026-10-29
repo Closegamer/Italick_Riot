@@ -203,6 +203,27 @@ function head(parent) {
   }
   limb(specs, M.frame, [-0.009, 0.02, fz(0, 0.02) + 0.012], [0.009, 0.02, fz(0, 0.02) + 0.012], 0.0035, 0.0035); // bridge
 
+  // eyelids: skin shutters over the painted eyes. Open they hide above the brow; closed they cover the iris.
+  const lids = [];
+  for (const s of [1, -1]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(s * 0.042, 0.012, fz(0.042, 0.012) + 0.003);
+    h.add(pivot);
+    const lid = blob(pivot, M.skin, [0, 0.012, 0], [0.021, 0.016, 0.006]);
+    const lash = mesh(new THREE.BoxGeometry(0.03, 0.0028, 0.002), M.frame, pivot, [0, 0.004, 0.004]);
+    lash.visible = false;
+    lids.push({ lid, lash });
+  }
+  h.userData.blink = (v) => {
+    const b = Math.max(0, Math.min(1, v));
+    for (const { lid, lash } of lids) {
+      lid.position.y = 0.012 + 0.012 * (1 - b);
+      lid.scale.y = 0.001 + 0.015 * b;
+      lash.position.y = lid.position.y - lid.scale.y + 0.0015;
+      lash.visible = b > 0.05;
+    }
+  };
+
   // talking mouth over the painted grin: flattened to nothing when closed, opens downwards from the upper lip
   const mouth = new THREE.Group();
   mouth.position.set(0, -0.06, fz(0, -0.064) + 0.003);
@@ -282,7 +303,40 @@ function furniture(parent) {
   return { g, chair, light };
 }
 
-const STANCE = { tL: 0, tR: 0, kL: 0, kR: 0, aL: 0, aR: 0, eL: -0.15, eR: -0.15, oL: 0.12, oR: 0.12, hips: 0.85, lean: 0, twist: 0, desk: 0, chair: 0 }; // hips 0.85 puts the soles on y = 0
+const THIGH = 0.37, SHIN = 0.36, LEG = THIGH + SHIN; // bone lengths, in body units
+const ANKLE_Y = 0.09; // height of the ankle joint that puts the sole on y = 0
+const STANCE = {
+  tL: 0, tR: 0, kL: 0, kR: 0, fL: 0, fR: 0, toeL: 0, toeR: 0,
+  aL: 0, aR: 0, eL: -0.15, eR: -0.15, oL: 0.12, oR: 0.12,
+  hips: 0.85, hipX: 0, list: 0, roll: 0, lean: 0, twist: 0, desk: 0, chair: 0,
+}; // hips 0.85 puts the soles on y = 0
+
+// Two-bone IK in the leg's sagittal plane. z = forward (local +z), hipY/ankleY in body units.
+function solveLeg(z, ankleY, hipY) {
+  const down = Math.max(0.001, hipY - ankleY);
+  const d = Math.min(LEG * 0.999, Math.max(Math.abs(THIGH - SHIN) + 0.001, Math.hypot(z, down)));
+  const cosK = (d * d - THIGH * THIGH - SHIN * SHIN) / (2 * THIGH * SHIN);
+  const cosB = (THIGH * THIGH + d * d - SHIN * SHIN) / (2 * THIGH * d);
+  const k = Math.acos(Math.max(-1, Math.min(1, cosK))); // knee flex, 0 = straight
+  const beta = Math.atan2(z, down) + Math.acos(Math.max(-1, Math.min(1, cosB))); // thigh angle from vertical
+  return { t: -beta, k };
+}
+
+// One foot's stride. stance: planted foot travels backwards; swing: lifted foot travels forwards.
+// p = 0 is mid-swing; the left leg strikes the ground at p = PI/2 and toes off at 3PI/2.
+function footCycle(p, stride, lift) {
+  const TAU = Math.PI * 2;
+  p = ((p % TAU) + TAU) % TAU;
+  const start = Math.PI / 2, end = Math.PI * 1.5;
+  if (p >= start && p < end) {
+    const u = (p - start) / Math.PI;
+    const pitch = -0.22 + 0.60 * u; // heel strike (toes up) -> toe-off (heel up)
+    return { z: stride * (0.5 - u), y: ANKLE_Y, pitch, toe: -Math.max(0, pitch), stance: true };
+  }
+  const u = p >= end ? (p - end) / Math.PI : (p + TAU - end) / Math.PI;
+  const pitch = 0.38 - 0.60 * u; // toe-off -> next heel strike
+  return { z: stride * (-0.5 + u), y: ANKLE_Y + lift * Math.sin(Math.PI * u), pitch, toe: 0, stance: false };
+}
 
 export function createGeek() {
   const root = new THREE.Group();
@@ -297,12 +351,20 @@ export function createGeek() {
   blob(hips, M.jeans, [0, 0, 0], [0.18, 0.11, 0.13]);
   const legs = {};
   for (const [S, s] of [['L', 1], ['R', -1]]) {
-    const thigh = seg(hips, M.jeans, [s * 0.1, -0.03, 0], 0.37, 0.085, 0.066);
-    const shin = seg(thigh.end, M.jeans, [0, 0, 0], 0.36, 0.064, 0.05);
-    blob(shin.end, M.shoe, [0, -0.035, 0.06], [0.065, 0.05, 0.13]);
-    blob(shin.end, M.stripe, [s * 0.05, -0.035, 0.06], [0.02, 0.025, 0.08]);
-    blob(shin.end, M.sole, [0, -0.07, 0.06], [0.068, 0.017, 0.135]);
-    legs[S] = { thigh: thigh.pivot, shin: shin.pivot };
+    const thigh = seg(hips, M.jeans, [s * 0.1, -0.03, 0], THIGH, 0.085, 0.066);
+    const shin = seg(thigh.end, M.jeans, [0, 0, 0], SHIN, 0.064, 0.05);
+    const ankle = new THREE.Group(); // heel/sole pitch; the whole shoe hangs here
+    shin.end.add(ankle);
+    const toe = new THREE.Group(); // ball of the foot: bends up during toe-off
+    toe.position.set(0, -0.035, 0.09);
+    ankle.add(toe);
+    blob(ankle, M.shoe, [0, -0.035, 0.02], [0.065, 0.05, 0.085]);
+    blob(ankle, M.stripe, [s * 0.05, -0.035, 0.02], [0.02, 0.025, 0.06]);
+    blob(ankle, M.sole, [0, -0.07, 0.03], [0.068, 0.017, 0.095]);
+    blob(toe, M.shoe, [0, 0, 0.05], [0.062, 0.045, 0.075]);
+    blob(toe, M.stripe, [s * 0.05, 0, 0.05], [0.02, 0.022, 0.055]);
+    blob(toe, M.sole, [0, -0.035, 0.05], [0.065, 0.015, 0.075]);
+    legs[S] = { thigh: thigh.pivot, shin: shin.pivot, ankle, toe };
   }
   const desk = furniture(turn);
 
@@ -380,25 +442,42 @@ export function createGeek() {
   // current pose, eased towards each frame's target so switching actions never snaps
   const cur = { ...STANCE };
   let facing = 0, lookYaw = 0, lookPitch = 0, grip = null; // grip: joints held over any pose (carrying something)
+  let blink = 0, blinkAt = 2 + Math.random() * 4, blinkT = -1;
+  function updateBlink(dt) {
+    if (blinkT >= 0) {
+      blinkT += dt;
+      const a = Math.min(1, blinkT / 0.18);
+      blink = a < 0.35 ? a / 0.35 : 1 - (a - 0.35) / 0.65; // snap shut, open a little slower
+      if (a >= 1) {
+        blinkT = -1;
+        blink = 0;
+        blinkAt = Math.random() < 0.15 ? 0.22 : 2 + Math.random() * 4; // occasional double blink
+      }
+    } else if ((blinkAt -= dt) <= 0) blinkT = 0;
+  }
   function apply(target, dt) {
     const e = 1 - Math.exp(-dt * 14);
     for (const key in cur) cur[key] += ((grip?.[key] ?? target[key] ?? STANCE[key]) - cur[key]) * e;
     for (const [S, s] of [['L', 1], ['R', -1]]) {
       legs[S].thigh.rotation.x = cur['t' + S];
       legs[S].shin.rotation.x = cur['k' + S];
+      legs[S].ankle.rotation.x = cur['f' + S];
+      legs[S].toe.rotation.x = cur['toe' + S];
       arms[S].upper.rotation.set(cur['a' + S], 0, s * cur['o' + S]);
       arms[S].fore.rotation.x = cur['e' + S];
     }
-    hips.position.y = cur.hips;
-    hips.rotation.y = cur.twist; // pelvis turns with the forward leg, shoulders counter-turn
-    spine.rotation.set(cur.lean, -cur.twist, 0);
+    hips.position.set(cur.hipX, cur.hips, 0);
+    hips.rotation.set(0, cur.twist, cur.list); // pelvis turns with the forward leg and drops on the swing side
+    spine.rotation.set(cur.lean, -cur.twist, cur.roll); // shoulders counter-turn and counter-bend
     desk.g.visible = cur.desk > 0.02;
     desk.g.scale.set(1, Math.max(0.001, cur.desk), 1); // grows up out of the floor
     const chair = Math.max(cur.desk, cur.chair);
     desk.chair.visible = chair > 0.02;
     desk.chair.scale.set(1, Math.max(0.001, chair), 1);
     turn.rotation.y += (facing - turn.rotation.y) * e;
-    h.rotation.set(lookPitch, lookYaw, 0);
+    h.rotation.set(lookPitch, lookYaw, -cur.roll * 0.7); // head stays level while the chest bends
+    updateBlink(dt);
+    h.userData.blink(blink);
   }
 
   return {
@@ -422,20 +501,28 @@ export function createGeek() {
 
     stand: (t, dt) => apply({ aL: 0.04 * Math.sin(t * 0.6), aR: -0.04 * Math.sin(t * 0.6) }, dt),
 
-    // phase advances with distance walked
+    // phase advances with distance walked. Feet are planted with IK: the stance foot moves backwards in body space at
+    // exactly the body's forward speed, so it stays pinned to the screen while the hips travel over it.
     walk: (phase, dt) => {
-      // near-linear thigh swing so the planted foot keeps pace with the ground instead of skating
-      const swing = (p) => Math.asin(0.95 * Math.sin(p)) / Math.asin(0.95);
-      // knee straight at heel strike, flexes before toe-off, peaks early in the swing
-      const knee = (p) => 0.08 + 0.85 * Math.max(0, Math.sin(p + 2.1));
-      const s = swing(phase), tL = -0.45 * s, tR = 0.45 * s, kL = knee(phase), kR = knee(phase + Math.PI);
-      // hip height from the lower leg so a sole is always on the floor: drops at double support, rises mid-stance
-      const drop = (t, k) => 0.37 * Math.cos(t) + 0.36 * Math.cos(t + k);
-      const c = Math.sin(phase);
+      const proj = Math.max(0.6, Math.abs(Math.sin(facing))); // screen x covered per unit of body-forward motion
+      const stride = 0.5 / proj;
+      const lf = footCycle(phase, stride, 0.13), rf = footCycle(phase + Math.PI, stride, 0.13);
+      const lfy = lf.y + 0.055 * Math.abs(lf.pitch), rfy = rf.y + 0.055 * Math.abs(rf.pitch);
+      // the hips can only be as high as the most extended planted leg allows: that gives the vertical bob for free
+      const reach = LEG * 0.985;
+      let hipY = ANKLE_Y + reach;
+      for (const [f, y] of [[lf, lfy], [rf, rfy]]) {
+        if (f.stance) hipY = Math.min(hipY, y + Math.sqrt(Math.max(0.001, reach * reach - f.z * f.z)));
+      }
+      const l = solveLeg(lf.z, lfy, hipY), r = solveLeg(rf.z, rfy, hipY);
+      const s = Math.sin(phase), c = Math.cos(phase);
+      const sway = 0.022 * Math.cos(phase - Math.PI); // weight shifts over the stance foot
+      const list = 0.035 * Math.cos(phase - Math.PI); // pelvis drops on the swing side
       apply({
-        tL, tR, kL, kR,
+        tL: l.t, kL: l.k, fL: lf.pitch - (l.t + l.k), toeL: lf.toe,
+        tR: r.t, kR: r.k, fR: rf.pitch - (r.t + r.k), toeR: rf.toe,
         aL: 0.35 * s, aR: -0.35 * s, eL: -0.25 - 0.3 * Math.max(0, -c), eR: -0.25 - 0.3 * Math.max(0, c), oL: 0.08, oR: 0.08,
-        hips: 0.12 + Math.max(drop(tL, kL), drop(tR, kR)), lean: 0.08, twist: -0.12 * s,
+        hips: hipY + 0.03, hipX: sway, list, roll: -list * 0.8, lean: 0.06, twist: -0.1 * s,
       }, dt);
     },
 
@@ -484,19 +571,19 @@ export function createGeek() {
     // sitting on a window edge (origin = the edge), legs dangling over the window
     perch: (t, dt) => apply({
       tL: -1.5, tR: -1.5, kL: 1.45 + 0.22 * Math.sin(t * 2.2), kR: 1.45 + 0.22 * Math.sin(t * 2.2 + 2),
-      aL: -0.45, aR: -0.45, eL: -0.75, eR: -0.75, oL: 0.1, oR: 0.1, hips: 0.12,
+      fL: 0.35, fR: 0.35, aL: -0.45, aR: -0.45, eL: -0.75, eR: -0.75, oL: 0.1, oR: 0.1, hips: 0.12,
     }, dt),
 
     // hanging under the parachute: hands up on the lines, legs dangling
     hang: (t, dt) => apply({
       aL: -2.9, aR: -2.9, eL: -0.15, eR: -0.15, oL: 0.25, oR: 0.25,
-      tL: 0.12 * Math.sin(t * 2), tR: -0.12 * Math.sin(t * 2), kL: 0.25, kR: 0.25,
+      tL: 0.12 * Math.sin(t * 2), tR: -0.12 * Math.sin(t * 2), kL: 0.25, kR: 0.25, fL: 0.3, fR: 0.3,
     }, dt),
 
     // resting on the chair (origin = floor), legs swinging
     sit: (t, dt) => apply({
       tL: -1.5, tR: -1.5, kL: 1.3 + 0.2 * Math.sin(t * 2.2), kR: 1.3 + 0.2 * Math.sin(t * 2.2 + 2),
-      aL: -0.45, aR: -0.45, eL: -0.75, eR: -0.75, oL: 0.1, oR: 0.1, hips: 0.5, chair: 1,
+      fL: 0.35, fR: 0.35, aL: -0.45, aR: -0.45, eL: -0.75, eR: -0.75, oL: 0.1, oR: 0.1, hips: 0.5, chair: 1,
     }, dt),
 
     // on the chair at the desk (origin = floor), typing on the laptop; the screen glows on his face

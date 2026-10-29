@@ -28,7 +28,7 @@ renderer.setSize(W, H);
 renderer.setClearColor(0x000000, 0);
 renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap; // r186 removed PCFSoftShadowMap
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -61,6 +61,29 @@ addEventListener('resize', () => {
 });
 scene.add(k.root);
 key.target = k.root;
+
+// soft contact shadow on the taskbar: a dark ellipse that stays on the ground and fades as he leaves it
+const shadowCanvas = document.createElement('canvas');
+shadowCanvas.width = shadowCanvas.height = 256;
+{
+  const g = shadowCanvas.getContext('2d');
+  const grd = g.createRadialGradient(128, 128, 8, 128, 128, 128);
+  grd.addColorStop(0, 'rgba(0,0,0,0.55)');
+  grd.addColorStop(0.5, 'rgba(0,0,0,0.28)');
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 256, 256);
+}
+const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+shadowTex.colorSpace = THREE.SRGBColorSpace;
+const contact = new THREE.Mesh(
+  new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.4, toneMapped: false }),
+);
+contact.renderOrder = -1;
+contact.position.z = -2;
+scene.add(contact);
+
 const door = createDoor();
 const flag = createFlag();
 const bed = createBed();
@@ -521,9 +544,9 @@ addEventListener('mouseup', (e) => {
   document.body.style.cursor = over ? 'grab' : '';
 });
 
-const clock = new THREE.Clock();
-renderer.setAnimationLoop(() => {
-  const dt = Math.min(clock.getDelta(), 0.05);
+const FIXED = 1 / 120; // fixed animation step: springs and foot contacts stay consistent at any refresh rate
+let lastFrame = performance.now(), accumulator = 0;
+function simulate(dt) {
   t += dt;
   const p = k.root.position;
   if (mode === 'held') {
@@ -596,12 +619,31 @@ renderer.setAnimationLoop(() => {
       approachPhase = farFor = 0;
     }
   }
+}
+
+renderer.setAnimationLoop(() => {
+  const now = performance.now();
+  accumulator += Math.min((now - lastFrame) / 1000, 0.25);
+  lastFrame = now;
+  for (let i = 0; i < 8 && accumulator >= FIXED; i++) { simulate(FIXED); accumulator -= FIXED; }
+
+  const p = k.root.position;
   if (!tag.hidden) {
     const r = rect();
     tag.style.left = `${(r.left + r.right) / 2}px`;
     tag.style.top = `${r.top - 6}px`;
   }
   if (flag.root.visible) flag.wave(t);
+  // contact shadow: stays on the taskbar, shrinks and fades while he is up in the air
+  const height = Math.max(0, p.y - ctx.ground);
+  const near = Math.max(0, 1 - height / (3 * ctx.SIZE));
+  contact.visible = !gone && near > 0.02;
+  if (contact.visible) {
+    const grow = 0.65 + 0.35 * near;
+    contact.position.set(p.x, ctx.ground + ctx.SIZE * 0.06, -2);
+    contact.scale.set(ctx.SIZE * 0.9 * grow, ctx.SIZE * 0.22 * grow, 1);
+    contact.material.opacity = 0.42 * near;
+  }
   key.position.copy(p).add(KEY_DIR); // light follows him
   renderer.render(scene, camera);
 });
