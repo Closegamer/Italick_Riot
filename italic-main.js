@@ -13,8 +13,8 @@ app.setName('Italic'); // one identity for the folder build and the single-file 
 
 const primary = app.requestSingleInstanceLock(); // a second double-click must not spawn a second Italic
 if (!primary) app.quit();
-else app.on('second-instance', () => { // the user launched it again: just bring the running one back to the front
-  if (!win) return;
+else app.on('second-instance', () => { // the user launched it again: bring the running one back to the front
+  if (!win || win.isDestroyed()) return;
   win.moveTop();
   run('comeBack()');
 });
@@ -35,10 +35,15 @@ const ACTIONS = fs.readdirSync(path.join(__dirname, 'src', 'actions')).filter((f
 const preload = path.join(__dirname, 'preload.js');
 
 let win, tray, lister = null, quitting = false;
+let pointerTimer = null, keepTimer = null;
 const timers = [];
 
 const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; };
-const run = (js) => win?.webContents.executeJavaScript(js).catch(() => {});
+// the window can already be destroyed while a timer or the lister is still firing: never touch it then
+const run = (js) => {
+  if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return Promise.resolve();
+  try { return win.webContents.executeJavaScript(js).catch(() => {}); } catch { return Promise.resolve(); }
+};
 
 // open windows are the platforms he climbs: their top edges come from main, and the scene turns them into ladders and ropes
 function startLister() {
@@ -79,9 +84,11 @@ function battles() {
 }
 
 async function goodbye() {
-  if (quitting) return;
+  if (quitting) return app.quit(); // a second Quit doesn't wait
   quitting = true;
   timers.forEach(clearTimeout);
+  clearInterval(pointerTimer);
+  clearInterval(keepTimer);
   await Promise.race([run('leaveForQuit()'), new Promise((r) => setTimeout(r, 12000))]);
   app.quit();
 }
@@ -97,16 +104,19 @@ if (primary) app.whenReady().then(() => {
   });
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setIgnoreMouseEvents(true, { forward: true });
-  ipcMain.on('hover', (_e, on) => win.setIgnoreMouseEvents(!on, { forward: true }));
+  win.on('closed', () => { win = null; }); // later timers must not touch it
+  ipcMain.on('hover', (_e, on) => { if (win && !win.isDestroyed()) win.setIgnoreMouseEvents(!on, { forward: true }); });
 
   // where the mouse pointer is, so he can glance at it (only sent when it moves)
   let last = '';
-  setInterval(() => {
+  pointerTimer = setInterval(() => {
+    if (!win || win.isDestroyed()) return;
     const c = screen.getCursorScreenPoint(), at = `${c.x - x},${c.y - y}`;
     if (at !== last) { last = at; run(`setPointer(${at})`); }
   }, 100);
   // the taskbar is topmost too and rises above us whenever it's touched; and Windows squeezes the overlay now and then
-  setInterval(() => {
+  keepTimer = setInterval(() => {
+    if (!win || win.isDestroyed()) return;
     const b = win.getBounds();
     if (Object.keys(full).some((k) => b[k] !== full[k])) win.setBounds(full);
     win.moveTop();
@@ -117,6 +127,7 @@ if (primary) app.whenReady().then(() => {
     later(() => run(`setFlag(${JSON.stringify(FLAG)})`), 900); // flagTodo: after the door, he carries it to the left edge
     later(show, START_MS); // once the flag is planted
     later(() => { run('battle()'); battles(); }, START_MS + 7000); // first statue, then every ITALIC_BATTLE_MS
+    if (process.env.ITALIC_QUIT_MS) later(goodbye, Number(process.env.ITALIC_QUIT_MS)); // testing a clean quit
   });
   win.loadFile('index.html', { query: {
     ground: String(d.workArea.y + d.workArea.height - y),
@@ -136,5 +147,12 @@ if (primary) app.whenReady().then(() => {
     { label: 'Quit', click: goodbye },
   ]));
 
-  app.on('will-quit', () => { quitting = true; lister?.kill(); });
+  app.on('will-quit', () => {
+    quitting = true;
+    lister?.kill();
+    clearInterval(pointerTimer);
+    clearInterval(keepTimer);
+    timers.forEach(clearTimeout);
+  });
+  app.on('window-all-closed', () => app.quit()); // never stay alive with no overlay
 });
