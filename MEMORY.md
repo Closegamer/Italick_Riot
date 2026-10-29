@@ -12,8 +12,8 @@ and is occasionally stopped by two policemen.
 - Repository: https://github.com/Closegamer/Italick_Riot
 - Author / developer nick: **Closegamer** — `closegamer@mail.ru`
 - Flag signature: **Italick, Russian programmer**
-- Current version: **1.2.0** (release tag `v1.2`)
-- Latest download: `Italick-1.2-windows.zip`
+- Current version: **1.3.0** (next release tag `v1.3`; v1.2 is the latest published)
+- Latest download: `Italick-1.2-windows.zip` (v1.3 build pending)
 - Important spelling: the character/app is **Italick**, not “Italic”. Keep it that way everywhere.
 - Windows 10/11 x64 only for now.
 
@@ -99,7 +99,7 @@ npm run build:italick     # folder build: dist\Italick-<ver>-win32-x64\Italick.e
 npm run bundle:italick    # single file:  dist\Italick-<ver>.exe
 ```
 
-Version is derived from `package.json` (`1.2.0` → display/file `1.2`). The bundle:
+Version is derived from `package.json` (`1.3.0` → display/file `1.3`). The bundle:
 1. builds the folder,
 2. zips it,
 3. compiles `tools/launcher.cs` with csc (icon + version metadata),
@@ -155,8 +155,8 @@ npm start
 
 ## Current state
 
-- Latest feature work: police visits + recognizable Russian passport + 3–8 minute random scheduling.
-- Latest release: **v1.2** (`Italick-1.2-windows.zip`).
-- Recent commits: `a607482 Release 1.2: police visits, passport check and discussion at the flag`.
+- Latest feature work: victory poses after statue fights (karate finishing stance and bow, ninja nunchaku flourish and hand seal).
+- Latest release: **v1.2** (`Italick-1.2-windows.zip`); **v1.3** is prepared but not yet published.
+- Recent commits: `48b8f0e Add victory poses after statue fights`.
 
 _Last updated: 2026-10-29._

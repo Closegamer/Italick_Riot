@@ -1,4 +1,4 @@
-Italick 1.2 - Windows desktop companion
+Italick 1.3 - Windows desktop companion
 ======================================
 
 WHAT IT IS
@@ -12,7 +12,7 @@ laugh and leave. They visit every 3 to 8 minutes (randomly).
 
 HOW TO RUN
 1. Unzip this folder anywhere you like.
-2. Double-click Italick-1.2.exe.
+2. Double-click Italick-1.3.exe.
 3. That's it. There is no installer and no chat window.
 
 The app lives in the system tray (bottom-right corner, near the clock).
@@ -47,7 +47,7 @@ Italick installs nothing into Windows - no registry entries, no services,
 no startup items, and no admin rights are needed.
 
 1. Right-click the tray icon and choose "Quit".
-2. Delete Italick-1.2.exe (or the whole unzipped folder).
+2. Delete Italick-1.3.exe (or the whole unzipped folder).
 3. Delete the folders it left behind. Press Win+R, paste a path, press
    Enter, and delete the folder:
      %LOCALAPPDATA%\Italick    (the unpacked app, about 300 MB)
@@ -62,7 +62,7 @@ If there is no tray icon but the process is still running: Task Manager
 -> Details -> end Italick.exe, then delete the folders above.
 
 VERSION
-Italick 1.2
+Italick 1.3
 
 writtenBy('Closegamer', 2026)
 closegamer@mail.ru
