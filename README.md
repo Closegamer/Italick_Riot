@@ -12,13 +12,13 @@ He plants a flag at the left edge of the screen:
 > *Italick, Russian programmer*
 
 **No chat, no voice control, no microphone** — Italick is a show-off, not an assistant. Windows 10/11 (x64) for now.
-Version 1.1.
+Version 1.2.
 
 ## Download and run (no installation)
 
-1. Download **`Italick-1.1-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick/releases/latest).
+1. Download **`Italick-1.2-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick/releases/latest).
 2. Unzip it anywhere (Desktop, USB stick, another PC).
-3. Double-click **`Italick-1.1.exe`**.
+3. Double-click **`Italick-1.2.exe`**.
 
 - No Node.js, no installer, no extra files: the exe is self-contained.
 - **First launch** takes a few seconds — it unpacks itself once to `%LOCALAPPDATA%\Italick`. Later launches are immediate.
@@ -56,8 +56,8 @@ cd Italick
 npm install
 
 npm start                # run the app from source
-npm run build:italick     # dist\Italick-1.1-win32-x64\Italick.exe (folder build)
-npm run bundle:italick    # dist\Italick-1.1.exe (single self-contained file)
+npm run build:italick     # dist\Italick-1.2-win32-x64\Italick.exe (folder build)
+npm run bundle:italick    # dist\Italick-1.2.exe (single self-contained file)
 ```
 
 `build:italick` copies the Electron runtime already in `node_modules`; `bundle:italick` wraps that folder in a small
@@ -90,7 +90,7 @@ Useful when testing: `ITALICK_START_MS`, `ITALICK_ROAM_MS`, `ITALICK_WORK_MS`, `
 Italick installs nothing into Windows: no registry entries, no services, no startup items, no admin rights needed.
 
 1. Right-click the tray icon → **Quit**.
-2. Delete `Italick-1.1.exe` (or the whole unzipped folder).
+2. Delete `Italick-1.2.exe` (or the whole unzipped folder).
 3. Delete the files it left behind — press **Win+R**, paste each path, press Enter, and delete the folder:
    - `%LOCALAPPDATA%\Italick` — the unpacked app (the biggest one, ~300 MB)
    - `%APPDATA%\Italick` — Electron/Chromium cache and preferences
