@@ -1,7 +1,7 @@
 {
   "name": "italic",
-  "version": "1.0.0",
-  "description": "Italic — a 3D Windows desktop companion: flag, roaming and Anthropic statue battles. writtenBy('Closegamer', 2026) · closegamer@mail.ru",
+  "version": "1.1.0",
+  "description": "Italic — a 3D Windows desktop companion: flag, roaming, Anthropic statue battles and his own bed for naps when you are away. writtenBy('Closegamer', 2026) · closegamer@mail.ru",
   "author": "Closegamer <closegamer@mail.ru>",
   "main": "italic-main.js",
   "private": true,

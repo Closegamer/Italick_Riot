@@ -1,14 +1,15 @@
-ITALIC 1.0 - Windows desktop companion
+ITALIC 1.1 - Windows desktop companion
 ======================================
 
 WHAT IT IS
 A small 3D character who lives on your desktop. He walks, climbs your
 windows, parachutes, sits at his desk, plants a flag, and now and then
-fights a rubber statue of Anthropic.
+fights a rubber statue of Anthropic. When you are away he has a bed of
+his own: after five minutes without input he lies down and sleeps.
 
 HOW TO RUN
 1. Unzip this folder anywhere you like.
-2. Double-click Italic-1.0.exe.
+2. Double-click Italic-1.1.exe.
 3. That's it. There is no installer and no chat window.
 
 The app lives in the system tray (bottom-right corner, near the clock).
@@ -43,7 +44,7 @@ Italic installs nothing into Windows - no registry entries, no services,
 no startup items, and no admin rights are needed.
 
 1. Right-click the tray icon and choose "Quit".
-2. Delete Italic-1.0.exe (or the whole unzipped folder).
+2. Delete Italic-1.1.exe (or the whole unzipped folder).
 3. Delete the folders it left behind. Press Win+R, paste a path, press
    Enter, and delete the folder:
      %LOCALAPPDATA%\Italic    (the unpacked app, about 300 MB)
@@ -56,7 +57,7 @@ If there is no tray icon but the process is still running: Task Manager
 -> Details -> end Italic.exe, then delete the folders above.
 
 VERSION
-Italic 1.0
+Italic 1.1
 
 writtenBy('Closegamer', 2026)
 closegamer@mail.ru

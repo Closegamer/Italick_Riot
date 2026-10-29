@@ -3,6 +3,7 @@
 A 3D character who lives on your Windows desktop: he walks along the taskbar, climbs the tops of your open windows by
 ladder and rope, parachutes down, perches on window edges, sits at his desk and types — and every so often a rubber
 statue of Anthropic pops up and he deals with it (in a ninja suit with nunchaku, or as a karate man in a kimono).
+He also has his own bed now: leave him alone for five minutes and he goes to sleep in it.
 
 He plants a flag at the left edge of the screen:
 
@@ -11,13 +12,13 @@ He plants a flag at the left edge of the screen:
 > *Italick, Russian programmer*
 
 **No chat, no voice control, no microphone** — Italic is a show-off, not an assistant. Windows 10/11 (x64) for now.
-Version 1.0.
+Version 1.1.
 
 ## Download and run (no installation)
 
-1. Download **`Italic-1.0-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick/releases/latest).
+1. Download **`Italic-1.1-windows.zip`** from the [latest release](https://github.com/Closegamer/Italick/releases/latest).
 2. Unzip it anywhere (Desktop, USB stick, another PC).
-3. Double-click **`Italic-1.0.exe`**.
+3. Double-click **`Italic-1.1.exe`**.
 
 - No Node.js, no installer, no extra files: the exe is self-contained.
 - **First launch** takes a few seconds — it unpacks itself once to `%LOCALAPPDATA%\Italic`. Later launches are immediate.
@@ -52,8 +53,8 @@ cd Italick
 npm install
 
 npm start                # run the app from source
-npm run build:italic     # dist\Italic-1.0-win32-x64\Italic.exe (folder build)
-npm run bundle:italic    # dist\Italic-1.0.exe (single self-contained file)
+npm run build:italic     # dist\Italic-1.1-win32-x64\Italic.exe (folder build)
+npm run bundle:italic    # dist\Italic-1.1.exe (single self-contained file)
 ```
 
 `build:italic` copies the Electron runtime already in `node_modules`; `bundle:italic` wraps that folder in a small
@@ -85,7 +86,7 @@ Useful when testing: `ITALIC_START_MS`, `ITALIC_ROAM_MS`, `ITALIC_WORK_MS`, `ITA
 Italic installs nothing into Windows: no registry entries, no services, no startup items, no admin rights needed.
 
 1. Right-click the tray icon → **Quit**.
-2. Delete `Italic-1.0.exe` (or the whole unzipped folder).
+2. Delete `Italic-1.1.exe` (or the whole unzipped folder).
 3. Delete the files it left behind — press **Win+R**, paste each path, press Enter, and delete the folder:
    - `%LOCALAPPDATA%\Italic` — the unpacked app (the biggest one, ~300 MB)
    - `%APPDATA%\Italic` — Electron/Chromium cache and preferences
