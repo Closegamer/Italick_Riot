@@ -143,6 +143,54 @@ export function snore() {
   } catch {}
 }
 
+// a quiet footstep
+export function step() {
+  try {
+    const a = audio(), t0 = a.currentTime;
+    const src = noise(), low = a.createBiquadFilter(), gain = a.createGain();
+    low.type = 'lowpass';
+    low.frequency.value = 420;
+    envelope(gain.gain, t0, 0.045, 0.09);
+    src.connect(low).connect(gain).connect(a.destination);
+    src.start(t0);
+    src.stop(t0 + 0.1);
+  } catch {}
+}
+
+// two low syllables of the policemen talking
+export function mumble() {
+  try {
+    const a = audio(), t0 = a.currentTime;
+    for (const [at, f] of [[0, 150], [0.15, 125]]) {
+      const osc = a.createOscillator(), gain = a.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, t0 + at);
+      osc.frequency.linearRampToValueAtTime(f * 0.8, t0 + at + 0.1);
+      envelope(gain.gain, t0 + at, 0.05, 0.12);
+      osc.connect(gain).connect(a.destination);
+      osc.start(t0 + at);
+      osc.stop(t0 + at + 0.14);
+    }
+  } catch {}
+}
+
+// three short "ha-ha-ha" notes as they walk away
+export function laugh() {
+  try {
+    const a = audio(), t0 = a.currentTime;
+    for (const [at, f] of [[0, 240], [0.14, 215], [0.28, 190]]) {
+      const osc = a.createOscillator(), gain = a.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, t0 + at);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.72, t0 + at + 0.11);
+      envelope(gain.gain, t0 + at, 0.07, 0.13);
+      osc.connect(gain).connect(a.destination);
+      osc.start(t0 + at);
+      osc.stop(t0 + at + 0.15);
+    }
+  } catch {}
+}
+
 // the door creaking open
 export function doorOpen() {
   try {

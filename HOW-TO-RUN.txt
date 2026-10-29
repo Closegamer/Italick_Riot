@@ -6,6 +6,9 @@ A small 3D character who lives on your desktop. He walks, climbs your
 windows, parachutes, sits at his desk, plants a flag, and now and then
 fights a rubber statue of Anthropic. When you are away he has a bed of
 his own: after five minutes without input he lies down and sleeps.
+Now and then two policemen walk in from the right, stop by the flag,
+check Italick's passport, point at the flag, talk it over and leave
+laughing.
 
 HOW TO RUN
 1. Unzip this folder anywhere you like.

@@ -66,6 +66,7 @@ function startLister() {
 const START_MS = Number(process.env.ITALICK_START_MS) || 12000;
 const ROAM_MS = Number(process.env.ITALICK_ROAM_MS) || 55000, WORK_MS = Number(process.env.ITALICK_WORK_MS) || 22000;
 const BATTLE_MS = Number(process.env.ITALICK_BATTLE_MS) || 45000;
+const POLICE_MS = Number(process.env.ITALICK_POLICE_MS) || 60000;
 const IDLE_SLEEP_MS = Number(process.env.ITALICK_IDLE_MS) || 5 * 60 * 1000; // no input -> bed
 function show() {
   if (quitting) return;
@@ -83,6 +84,15 @@ function battles() {
     run('battle()');
     battles();
   }, BATTLE_MS);
+}
+
+// every so often two policemen stop him by the flag to check his passport
+function police() {
+  if (quitting) return;
+  later(() => {
+    run('police()');
+    police();
+  }, POLICE_MS);
 }
 
 async function goodbye() {
@@ -140,6 +150,7 @@ if (primary) app.whenReady().then(() => {
       run('wakeUp()');
       show(); // resume the demo
       battles();
+      police();
     }
   }, 2000);
 
@@ -148,7 +159,9 @@ if (primary) app.whenReady().then(() => {
     later(() => run(`setFlag(${JSON.stringify(FLAG)})`), 900); // flagTodo: after the door, he carries it to the left edge
     later(show, START_MS); // once the flag is planted
     later(() => { run('battle()'); battles(); }, START_MS + 7000); // first statue, then every ITALICK_BATTLE_MS
+    later(() => { run('police()'); police(); }, START_MS + 20000); // first police visit, then every ITALICK_POLICE_MS
     if (process.env.ITALICK_QUIT_MS) later(goodbye, Number(process.env.ITALICK_QUIT_MS)); // testing a clean quit
+    if (process.env.ITALICK_POLICE_NOW) later(() => run('police()'), Number(process.env.ITALICK_POLICE_NOW)); // testing
   });
   win.loadFile('index.html', { query: {
     ground: String(d.workArea.y + d.workArea.height - y),

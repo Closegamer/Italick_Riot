@@ -38,6 +38,9 @@ Version 1.1.
   or into a karate man in a white kimono, then beats the statue until it bursts into dust. Punches, kicks and fights have
   synthesized sounds. Statues obey the same gravity as he does: knock one off a window and it falls; hit the taskbar and it
   shatters.
+- **Police visits**: now and then two policemen slowly walk in from the right side of the screen. They stop by the flag,
+  Italick shows them his Russian passport, they read it, point at the flag, talk it over and walk away to the left,
+  laughing.
 - **Sleeps when you are away**: after five minutes without keyboard or mouse activity, a bed pops up beside him, he
   climbs in, lies down with floating Zzz and soft snores. Any input wakes him and the bed disappears.
 - **Grabbable**: hover over him, then drag him anywhere. Let go to drop him or throw him. While a battle or a cinematic
@@ -60,8 +63,8 @@ npm run bundle:italick    # dist\Italick-1.1.exe (single self-contained file)
 `build:italick` copies the Electron runtime already in `node_modules`; `bundle:italick` wraps that folder in a small
 self-extracting launcher (`tools/launcher.cs`, built with the .NET Framework compiler included in Windows).
 
-Useful when testing: `ITALICK_START_MS`, `ITALICK_ROAM_MS`, `ITALICK_WORK_MS`, `ITALICK_BATTLE_MS`, `ITALICK_IDLE_MS`,
-`ITALICK_ACTIONS=idle`, `ITALICK_QUIT_MS`.
+Useful when testing: `ITALICK_START_MS`, `ITALICK_ROAM_MS`, `ITALICK_WORK_MS`, `ITALICK_BATTLE_MS`, `ITALICK_POLICE_MS`,
+`ITALICK_IDLE_MS`, `ITALICK_ACTIONS=idle`, `ITALICK_QUIT_MS`, `ITALICK_POLICE_NOW`.
 
 ## Code
 
@@ -72,6 +75,7 @@ Useful when testing: `ITALICK_START_MS`, `ITALICK_ROAM_MS`, `ITALICK_WORK_MS`, `
 | `src/geek.js` | The character: jointed model, textures, poses, ninja and karate outfits |
 | `src/roam.js` | Roaming, ladder/rope climbing, parachuting, statue battles (ninja + karate choreography) |
 | `src/statue.js` | The rubber Anthropic statue, its gravity and dust |
+| `src/police.js`, `src/passport.js` | The two policemen and the Russian passport |
 | `src/nunchaku.js` | Nunchaku model |
 | `src/sfx.js` | Synthesized sounds: door, flag, fight, dust |
 | `src/flag.js` | The flag: caption, signature, wind animation |

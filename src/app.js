@@ -4,6 +4,8 @@ import { createGeek } from './geek.js';
 import { createDoor } from './door.js';
 import { createFlag, GRIP } from './flag.js';
 import { createBed } from './bed.js';
+import { createCop } from './police.js';
+import { createPassport } from './passport.js';
 import { createRoam } from './roam.js';
 import * as sfx from './sfx.js';
 
@@ -63,7 +65,9 @@ key.target = k.root;
 const door = createDoor();
 const flag = createFlag();
 const bed = createBed();
-scene.add(door.root, flag.root, bed.root);
+const copA = createCop(0), copB = createCop(1);
+const passport = createPassport();
+scene.add(door.root, flag.root, bed.root, copA.root, copB.root, passport.root);
 
 function setSize(px) {
   ctx.SIZE = px;
@@ -90,7 +94,7 @@ function next() {
 }
 
 // scripted scenes (leaving through a door, coming back) are generators: each frame resumes them with dt
-let script = null, gone = true, roamScript = null, battleQueued = false; // he starts behind his door and comes out of it
+let script = null, gone = true, roamScript = null, battleQueued = false, policeQueued = false; // he starts behind his door and comes out of it
 const run = (scene) => { action?.stop(k, ctx); action = null; approach = null; script = scene; script.next(); };
 function* during(sec, each) {
   for (let s = 0; s < sec;) { const dt = yield; s += dt; each(Math.min(1, s / sec), dt); }
@@ -216,6 +220,16 @@ window.battle = () => {
   return true;
 };
 
+// two policemen stop Italick near the flag: he shows his passport, they read it, point at the flag and leave laughing
+window.police = () => {
+  if (gone || home || ctx.busy || bye) return false;
+  if (script && script !== roamScript) return false;
+  if (script && script === roamScript) { ctx.roam = false; policeQueued = true; return true; }
+  policeQueued = false;
+  run(policeScene());
+  return true;
+};
+
 // quitting: he finishes what he's doing (comes down from the windows), then leaves through the door; resolves once he's gone
 let bye = null;
 window.leaveForQuit = () => new Promise((resolve) => { bye = resolve; ctx.roam = false; });
@@ -287,6 +301,118 @@ window.sleep = () => {
   return true;
 };
 window.wakeUp = () => { wakeRequested = true; };
+
+// ---------- police: two officers walk in from the right, stop by the flag, check Italick's passport and leave laughing ----------
+function* policeScene() {
+  if (bye) return;
+  ctx.roam = false;
+  ctx.busy = false;
+  const S = ctx.SIZE, p = k.root.position;
+  p.y = ctx.ground;
+  const stopA = FLAG_X + flag.width + 0.7 * S;
+  const stopB = stopA + 0.74 * S;
+  const meetX = Math.min(W - 1.2 * S, stopB + 1.3 * S);
+  copA.place(W + 0.7 * S, ctx.ground, 0.9 * S, -1);
+  copB.place(W + 1.6 * S, ctx.ground, 0.86 * S, -1);
+
+  let phA = 0, phB = 0, phI = 0, nextStep = 0;
+  while ((copA.x() > stopA || copB.x() > stopB || Math.abs(p.x - meetX) > 2) && !bye) {
+    const dt = yield;
+    if (copA.x() > stopA) {
+      const d = Math.min(1.0 * S * dt, copA.x() - stopA);
+      copA.root.position.x -= d;
+      phA += (d / (0.35 * S)) * Math.PI;
+      copA.walk(phA, dt);
+    } else copA.stand(t, dt);
+    if (copB.x() > stopB) {
+      const d = Math.min(1.0 * S * dt, copB.x() - stopB);
+      copB.root.position.x -= d;
+      phB += (d / (0.35 * S)) * Math.PI;
+      copB.walk(phB, dt);
+    } else copB.stand(t, dt);
+    if (Math.abs(p.x - meetX) > 2) {
+      const d = Math.min(1.6 * SPEED * S * dt, Math.abs(meetX - p.x));
+      p.x += Math.sign(meetX - p.x) * d;
+      phI += (d / (STEP * S)) * Math.PI;
+      k.face(Math.sign(meetX - p.x));
+      k.look(0, 0);
+      k.walk(phI, dt);
+    } else {
+      k.face(-1);
+      k.stand(t, dt);
+    }
+    if (t > nextStep) { sfx.step(); nextStep = t + 0.38; }
+  }
+  if (bye) { copA.hide(); copB.hide(); return; }
+
+  copA.face(1);
+  copB.face(1);
+  k.face(-1);
+  yield* during(0.6, (a, dt) => { copA.stand(t, dt); copB.stand(t, dt); k.stand(t, dt); });
+
+  const hand = new THREE.Vector3();
+  const holdPassport = (dt) => {
+    k.pose({ aR: -1.45, eR: -0.4, oR: 0.15, aL: 0.08, eL: -0.2 }, dt);
+    k.hand('R', hand);
+    passport.set(hand.x + 0.02 * S, hand.y + 0.05 * S, hand.z + 0.22 * S, S * 1.1, -0.08);
+  };
+  sfx.cloth();
+  passport.show();
+  yield* during(0.7, (a, dt) => { holdPassport(dt); copA.stand(t, dt); copB.stand(t, dt); });
+
+  sfx.mumble();
+  let said = false;
+  yield* during(2.2, (a, dt) => {
+    holdPassport(dt);
+    copA.read(t, dt);
+    copB.read(t + 0.3, dt);
+    if (a > 0.55 && !said) { sfx.mumble(); said = true; }
+  });
+
+  yield* during(1.4, (a, dt) => {
+    holdPassport(dt);
+    copA.point(dt); // he points at the flag
+    copB.read(t, dt);
+  });
+
+  yield* during(1.3, (a, dt) => {
+    holdPassport(dt);
+    copA.read(t, dt);
+    copB.read(t, dt);
+    if (a > 0.2 && said) { said = false; sfx.mumble(); }
+  });
+
+  passport.hide();
+  yield* during(0.4, (a, dt) => {
+    k.pose({ aR: 0, eR: -0.15, aL: 0, eL: -0.15 }, dt);
+    copA.stand(t, dt);
+    copB.stand(t, dt);
+  });
+
+  // they walk away to the left, laughing
+  copA.face(-1);
+  copB.face(-1);
+  sfx.laugh();
+  let nextLaugh = t + 1.6;
+  phA = phB = 0;
+  while (copA.x() > -2 * S && !bye) {
+    const dt = yield;
+    const d = 1.2 * S * dt;
+    copA.root.position.x -= d;
+    copB.root.position.x -= d;
+    phA += (d / (0.35 * S)) * Math.PI;
+    copA.walk(phA, dt);
+    copB.walk(phA + 0.5, dt);
+    copA.laugh(t, dt);
+    copB.laugh(t + 0.6, dt);
+    k.face(-1);
+    k.stand(t, dt);
+    if (t > nextLaugh) { sfx.laugh(); nextLaugh = t + 1.6; }
+  }
+  copA.hide();
+  copB.hide();
+  p.y = ctx.ground;
+}
 
 // Home: drop him into a terminal window and he lives there - on its bottom edge, within its width, carried along when
 // the window moves. Closing or minimizing it sends him back down to the taskbar.
@@ -448,6 +574,7 @@ renderer.setAnimationLoop(() => {
       script = null;
       if (wasRoam) roamScript = null;
       if (battleQueued && !bye) { battleQueued = false; run(roamer.battle()); }
+      else if (policeQueued && !bye) { policeQueued = false; run(policeScene()); }
       else next();
     }
   } else if (gone) {
