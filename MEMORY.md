@@ -233,8 +233,8 @@ Quick food test: the same with `$env:ITALICK_FOOD_NOW='13000'` (the first 8 s ca
   request (their tags are kept).
 - Latest feature work: tray **Sound** switcher — a mute checkbox plus a radio list of playback devices (`setSinkId`),
   persisted in `%APPDATA%\Italick\sound.json`; and the earlier police visit rework plus the tray **Call police** item.
-- Recent commits: `f698147 Rework the police visit, add tray Call police, bump to 1.5`,
-  `3ce8db6 Add helicopter food delivery, bump to 1.4`.
+- Recent commits: `3a74b82 Add tray sound switcher, bump to 1.6`,
+  `f698147 Rework the police visit, add tray Call police, bump to 1.5`.
 - Known limitation: the character is still stylised (not photo-real); a realistic human needs a custom rigged GLB with
   a red reindeer sweater mesh, glasses and a climb clip (blocked on assets).
 
