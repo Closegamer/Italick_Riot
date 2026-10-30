@@ -163,7 +163,7 @@ Release assets must be uploaded to GitHub Releases, not committed (the exe is ~1
 | Tag | Highlights |
 |---|---|
 | `v1.0` Italic | Original name, basic desktop pet |
-| `v1.1`, `v1.2` | Pre-rewrite iterations (see GitHub releases) |
+| `v1.1`, `v1.2` | Pre-rewrite iterations (see the git tags; their release objects were deleted) |
 | `v1.3` | Victory poses after fights; realism pass (blink, IK feet, pelvis sway, contact shadow, 120 Hz step); adult proportions |
 | `v1.4` | Helicopter food delivery: parachuted crate, burger, drink, rubbish bin, finish beeps |
 | `v1.5` | Police visit rework (chat on the way in, one cop points, random argument, proper passport lowering); tray **Call police** |
@@ -229,11 +229,13 @@ Quick food test: the same with `$env:ITALICK_FOOD_NOW='13000'` (the first 8 s ca
 
 ## Current state
 
-- Latest release: **v1.6** (`Italick-1.6-windows.zip`, marked Latest on GitHub); older releases were removed at the owner's
-  request (their tags are kept).
+- Latest release: **v1.6** (2026-10-30), `Italick-1.6-windows.zip` (139.3 MB), marked **Latest** on GitHub:
+  https://github.com/Closegamer/Italick_Riot/releases/tag/v1.6. The asset URL was verified (HTTP 200).
+- Release cleanup: the release objects for `v1.0`–`v1.5` were deleted at the owner's request; only **v1.6** remains on the
+  Releases page. Their **git tags are kept**, so the source history is intact.
 - Latest feature work: tray **Sound** switcher — a mute checkbox plus a radio list of playback devices (`setSinkId`),
   persisted in `%APPDATA%\Italick\sound.json`; and the earlier police visit rework plus the tray **Call police** item.
-- Recent commits: `3a74b82 Add tray sound switcher, bump to 1.6`,
+- Recent commits: `3d44e3a Update project memory for 1.6`, `3a74b82 Add tray sound switcher, bump to 1.6`,
   `f698147 Rework the police visit, add tray Call police, bump to 1.5`.
 - Known limitation: the character is still stylised (not photo-real); a realistic human needs a custom rigged GLB with
   a red reindeer sweater mesh, glasses and a climb clip (blocked on assets).
