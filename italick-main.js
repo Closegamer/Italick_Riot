@@ -39,6 +39,23 @@ let pointerTimer = null, keepTimer = null, idleTimer = null;
 let sleeping = false;
 const timers = [];
 
+// tray sound switcher: muted flag, chosen output device and the devices Chromium reported (persisted in sound.json)
+let soundFile = null, trayVersion = '';
+const sound = { muted: false, deviceId: 'default', outputs: [] };
+
+function loadSound() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(soundFile, 'utf8'));
+    if (!saved || typeof saved !== 'object') return;
+    sound.muted = !!saved.muted;
+    if (typeof saved.deviceId === 'string' && saved.deviceId) sound.deviceId = saved.deviceId;
+  } catch {}
+}
+
+function saveSound() {
+  try { fs.writeFileSync(soundFile, JSON.stringify({ muted: sound.muted, deviceId: sound.deviceId }, null, 2)); } catch {}
+}
+
 const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; };
 // the window can already be destroyed while a timer or the lister is still firing: never touch it then
 const run = (js) => {
@@ -124,6 +141,65 @@ function callPolice() {
   tick();
 }
 
+// tray sound switcher: one "Sound" submenu with a mute toggle and a radio list of output devices
+function muteSounds(item) {
+  sound.muted = !!item.checked;
+  run(`setAudioMuted(${sound.muted})`);
+  saveSound();
+}
+
+async function chooseOutput(id) {
+  const ok = await run(`setAudioOutput(${JSON.stringify(id)})`);
+  sound.deviceId = ok ? id : 'default';
+  if (!ok) run(`setAudioOutput('default')`);
+  saveSound();
+  buildTray(); // redraw the radio marks if the device went away and we fell back
+}
+
+async function refreshOutputs() {
+  const list = await run('listAudioOutputs()');
+  if (Array.isArray(list) && list.length) {
+    sound.outputs = list.filter((d) => d && typeof d.id === 'string' && typeof d.label === 'string');
+  }
+  if (!sound.outputs.some((d) => d.id === sound.deviceId)) {
+    sound.deviceId = 'default'; // the saved device is gone: go back to the Windows default
+    saveSound();
+    await run(`setAudioOutput('default')`);
+  }
+}
+
+function buildTray() {
+  const outputs = sound.outputs.length ? sound.outputs : [{ id: 'default', label: 'System default' }];
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: `Italick ${trayVersion} — from Russia with code`, enabled: false },
+    { type: 'separator' },
+    { label: 'Call police', click: callPolice },
+    { label: 'Order food', click: () => run('foodDelivery()') },
+    { type: 'separator' },
+    { label: 'Sound', submenu: [
+      { label: 'Mute sounds', type: 'checkbox', checked: sound.muted, click: muteSounds },
+      { type: 'separator' },
+      { label: 'Play on', enabled: false },
+      ...outputs.map((d) => ({ label: d.label, type: 'radio', checked: sound.deviceId === d.id, click: () => chooseOutput(d.id) })),
+      { type: 'separator' },
+      { label: 'Refresh devices', click: async () => { await refreshOutputs(); buildTray(); } },
+    ] },
+    { type: 'separator' },
+    { label: 'Quit', click: goodbye },
+  ]));
+}
+
+// once the page is ready: read the saved mute/device, apply them, and fill the menu with the real device names
+async function applySound() {
+  await refreshOutputs();
+  await run(`setAudioMuted(${sound.muted})`);
+  if (sound.deviceId !== 'default') {
+    const ok = await run(`setAudioOutput(${JSON.stringify(sound.deviceId)})`);
+    if (!ok) { sound.deviceId = 'default'; saveSound(); }
+  }
+  buildTray();
+}
+
 async function goodbye() {
   if (quitting) return app.quit(); // a second Quit doesn't wait
   quitting = true;
@@ -135,6 +211,8 @@ async function goodbye() {
 }
 
 if (primary) app.whenReady().then(() => {
+  soundFile = path.join(app.getPath('userData'), 'sound.json');
+  loadSound(); // mute/device survive restarts
   const d = screen.getPrimaryDisplay();
   const { x, y, width, height } = d.bounds;
   const full = { x, y, width, height: height - 1 }; // height - 1: a full-monitor topmost window counts as fullscreen
@@ -147,6 +225,12 @@ if (primary) app.whenReady().then(() => {
   win.setIgnoreMouseEvents(true, { forward: true });
   win.on('closed', () => { win = null; }); // later timers must not touch it
   ipcMain.on('hover', (_e, on) => { if (win && !win.isDestroyed()) win.setIgnoreMouseEvents(!on, { forward: true }); });
+
+  // the tray sound switcher needs device names and permission to pick a non-default speaker; grant both to our own page only
+  const ses = win.webContents.session, allowed = new Set(['media', 'speaker-selection']);
+  const ours = (wc) => !!win && !win.isDestroyed() && wc === win.webContents;
+  ses.setPermissionRequestHandler((wc, permission, callback) => callback(ours(wc) && allowed.has(permission)));
+  ses.setPermissionCheckHandler((wc, permission) => ours(wc) && allowed.has(permission));
 
   // where the mouse pointer is, so he can glance at it (only sent when it moves)
   let last = '';
@@ -185,6 +269,7 @@ if (primary) app.whenReady().then(() => {
   }, 2000);
 
   win.webContents.once('did-finish-load', startLister);
+  win.webContents.once('did-finish-load', () => { applySound(); }); // mute and the saved output device, then real device names
   win.webContents.once('did-finish-load', () => {
     later(() => run(`setFlag(${JSON.stringify(FLAG)})`), 900); // flagTodo: after the door, he carries it to the left edge
     later(show, START_MS); // once the flag is planted
@@ -203,16 +288,9 @@ if (primary) app.whenReady().then(() => {
   } });
 
   tray = new Tray(path.join(__dirname, 'icon.png'));
-  const version = app.getVersion().replace(/\.0$/, '');
-  tray.setToolTip(`Italick ${version}`);
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: `Italick ${version} — from Russia with code`, enabled: false },
-    { type: 'separator' },
-    { label: 'Call police', click: callPolice },
-    { label: 'Order food', click: () => run('foodDelivery()') },
-    { type: 'separator' },
-    { label: 'Quit', click: goodbye },
-  ]));
+  trayVersion = app.getVersion().replace(/\.0$/, '');
+  tray.setToolTip(`Italick ${trayVersion}`);
+  buildTray(); // a first menu with just "System default", filled with real devices once the page has loaded
 
   app.on('will-quit', () => {
     quitting = true;

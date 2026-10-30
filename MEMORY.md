@@ -8,14 +8,15 @@ architecture, features, version or release process changes.
 **Italick** is a Windows-only 3D desktop companion built with Electron + Three.js. He lives in the tray, walks on the
 taskbar, climbs open windows, parachutes, works at a desk, plants a flag, sleeps in a bed, has food delivered by
 helicopter, fights rubber Anthropic statues, and is occasionally stopped by two policemen who check his passport.
-The tray menu can summon the policemen or a food delivery on demand.
+The tray menu can summon the policemen or a food delivery on demand, and mute him or switch the playback device for all
+sounds.
 
 - Repository: https://github.com/Closegamer/Italick_Riot (formerly `Closegamer/Italick`, which was deleted; git history
   was rewritten to a single author, so the contribution graph stays clean)
 - Author / developer nick: **Closegamer** — `closegamer@mail.ru`
 - Flag signature: **Italick, Russian programmer**
-- Current version: **1.5.0** (release tag `v1.5`)
-- Latest download: `Italick-1.5-windows.zip`
+- Current version: **1.6.0** (release tag `v1.6`)
+- Latest download: `Italick-1.6-windows.zip`
 - Important spelling: the character/app is **Italick**, not “Italic”. Keep it that way everywhere.
 - Windows 10/11 x64 only for now.
 
@@ -36,7 +37,7 @@ The tray menu can summon the policemen or a food delivery on demand.
 
 | Path | Purpose |
 |---|---|
-| `italick-main.js` | Electron main process: tray menu, overlay window, window lister, demo timer, battles, police visits, food deliveries, sleep/wake |
+| `italick-main.js` | Electron main process: tray menu (with the sound switcher), overlay window, window lister, demo timer, battles, police visits, food deliveries, sleep/wake |
 | `src/app.js` | Three.js scene, animation loop, door/flag/sleep/police/food scenes, mouse drag/throw, script queue |
 | `src/geek.js` | Italick model, poses, ninja and karate outfits, eat/drink poses |
 | `src/roam.js` | Roaming, ladder/rope climbing, parachuting, statue battles (ninja + karate), roam cleanup |
@@ -47,7 +48,7 @@ The tray menu can summon the policemen or a food delivery on demand.
 | `src/passport.js` | Russian passport: burgundy cover, gold double-headed eagle, «ПАСПОРТ» |
 | `src/food.js` | Food delivery props: helicopter, parachuted crate, burger, drink, wrapper, rubbish bin |
 | `src/flag.js` | Flag cloth, caption/signature, wind flutter |
-| `src/sfx.js` | All sounds, synthesized with Web Audio (no audio assets) |
+| `src/sfx.js` | All sounds, synthesized with Web Audio (no audio assets); master gain for mute, `setSinkId` for output routing |
 | `src/actions/*.js` | Random behaviours: `walk`, `idle`, `sit` |
 | `src/parts.js` | Procedural modelling helpers |
 | `roam/windows.ps1`, `roam/edges.js` | Open-window lister and walkable top-edge maths |
@@ -71,6 +72,14 @@ The tray menu can summon the policemen or a food delivery on demand.
 - **Call police** → `callPolice()`: runs `police()` in the renderer and retries every 2 s (up to 15 times) while he is
   busy; on the first retry it also sends `setBusy(false)` so he stands up from the desk.
 - **Order food** → `run('foodDelivery()')`.
+- **Sound** → submenu built by `buildTray()`:
+  - **Mute sounds** (checkbox) → `muteSounds()` → `setAudioMuted(bool)` in `sfx.js` (master gain).
+  - **Play on** (disabled header) followed by one radio per output device → `chooseOutput(id)` → `setAudioOutput(id)`
+    (`AudioContext.setSinkId`); `System default` tracks the Windows default device.
+  - **Refresh devices** → `refreshOutputs()` re-runs `enumerateDevices()`.
+  - Mute state and device are saved to `%APPDATA%\Italick\sound.json`; `applySound()` restores them after
+    `did-finish-load` and rebuilds the menu with real device names. A saved device that disappeared falls back to
+    `default` and rewrites the file.
 - **Quit** → `goodbye()`: he finishes his scene, walks into his door, then the app quits (12 s cap).
 
 ### Statue battles
@@ -127,7 +136,7 @@ npm run build:italick     # folder build: dist\Italick-<ver>-win32-x64\Italick.e
 npm run bundle:italick    # single file:  dist\Italick-<ver>.exe
 ```
 
-Version is derived from `package.json` (`1.5.0` → display/file `1.5`). The bundle:
+Version is derived from `package.json` (`1.6.0` → display/file `1.6`). The bundle:
 1. builds the folder,
 2. zips it,
 3. compiles `tools/launcher.cs` with csc (icon + version metadata),
@@ -158,6 +167,7 @@ Release assets must be uploaded to GitHub Releases, not committed (the exe is ~1
 | `v1.3` | Victory poses after fights; realism pass (blink, IK feet, pelvis sway, contact shadow, 120 Hz step); adult proportions |
 | `v1.4` | Helicopter food delivery: parachuted crate, burger, drink, rubbish bin, finish beeps |
 | `v1.5` | Police visit rework (chat on the way in, one cop points, random argument, proper passport lowering); tray **Call police** |
+| `v1.6` | Tray **Sound** switcher: mute all synthesized sounds and pick the playback device, saved in `%APPDATA%\Italick\sound.json` |
 
 ## Test knobs (environment)
 
@@ -199,6 +209,12 @@ Quick food test: the same with `$env:ITALICK_FOOD_NOW='13000'` (the first 8 s ca
 
 ## Known gotchas
 
+- All synthesized sounds must connect to the `master` gain in `src/sfx.js`, not to `ac.destination`, or **Mute sounds**
+  will not affect them.
+- Chromium exposes output-device names and allows non-default `setSinkId` only with the `media` / `speaker-selection`
+  permissions; `italick-main.js` grants them to the overlay page only.
+- Output `deviceId`s are per-origin hashes. If the saved one is gone (device unplugged), `applySound()` falls back to
+  `default` and rewrites `sound.json`.
 - While roaming, `script === roamScript`; battles/police/food queue and run after the roam cleanup, so props don’t remain.
 - Sleeping clears demo timers; `show()`, `battles()`, `police()` and `food()` are restarted on wake.
 - Do not call `win.webContents` without `win && !win.isDestroyed()` checks in timers.
@@ -213,10 +229,10 @@ Quick food test: the same with `$env:ITALICK_FOOD_NOW='13000'` (the first 8 s ca
 
 ## Current state
 
-- Latest release: **v1.5** (`Italick-1.5-windows.zip`, marked Latest on GitHub).
-- Latest feature work: police visit rework (chat on the way in, Italick faces them, only one cop points with one arm,
-  the other stands with his hands behind his back, random pointing/argument length, passport goes down with his hand)
-  plus the tray **Call police** item.
+- Latest release: **v1.6** (`Italick-1.6-windows.zip`, marked Latest on GitHub); older releases were removed at the owner's
+  request (their tags are kept).
+- Latest feature work: tray **Sound** switcher — a mute checkbox plus a radio list of playback devices (`setSinkId`),
+  persisted in `%APPDATA%\Italick\sound.json`; and the earlier police visit rework plus the tray **Call police** item.
 - Recent commits: `f698147 Rework the police visit, add tray Call police, bump to 1.5`,
   `3ce8db6 Add helicopter food delivery, bump to 1.4`.
 - Known limitation: the character is still stylised (not photo-real); a realistic human needs a custom rigged GLB with

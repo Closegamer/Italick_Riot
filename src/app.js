@@ -262,6 +262,10 @@ window.police = () => {
 let bye = null;
 window.leaveForQuit = () => new Promise((resolve) => { bye = resolve; ctx.roam = false; });
 window.setEdges = roamer.setEdges;
+// the tray sound switcher: mute all synthesized sounds and route them to the chosen output device (sfx.js does the work)
+window.setAudioMuted = sfx.setMuted;
+window.setAudioOutput = sfx.setOutput;
+window.listAudioOutputs = sfx.listOutputs;
 
 // ---------- sleep: after five minutes without user input a bed appears and he goes to sleep in it ----------
 let wakeRequested = false;

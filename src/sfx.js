@@ -1,11 +1,59 @@
 // Small synthesized sounds for the statue fight: no audio files, everything is made with Web Audio.
-let ac = null;
+// Every sound goes through one master gain, so the tray menu can mute them all at once and send them to any output device.
+let ac = null, master = null;
 let noiseBuffer = null;
+let muted = false;
 
 function audio() {
-  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (!ac) {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain();
+    master.gain.value = muted ? 0 : 1;
+    master.connect(ac.destination);
+  }
   if (ac.state === 'suspended') ac.resume().catch(() => {});
   return ac;
+}
+
+// tray sound switcher: mute/unmute everything without touching the scene code
+export function setMuted(on) {
+  muted = !!on;
+  audio();
+  master.gain.setTargetAtTime(muted ? 0 : 1, ac.currentTime, 0.01); // a very short ramp, so there is no click
+}
+
+// tray sound switcher: play through a device from listOutputs() ("default" follows the Windows default device)
+export async function setOutput(deviceId) {
+  const a = audio(), id = deviceId || 'default';
+  if (typeof a.setSinkId !== 'function') return id === 'default';
+  try {
+    await a.setSinkId(id);
+    return true;
+  } catch {
+    if (id !== 'default') await a.setSinkId('default').catch(() => {}); // the device went away: fall back
+    return false;
+  }
+}
+
+// tray sound switcher: the output devices Chromium can see. Labels need the media/speaker-selection permissions, which
+// main grants to our own window (see italick-main.js).
+export async function listOutputs() {
+  const fallback = [{ id: 'default', label: 'System default' }];
+  try {
+    if (!navigator.mediaDevices?.enumerateDevices) return fallback;
+    const list = await navigator.mediaDevices.enumerateDevices();
+    const seen = new Set(), out = [];
+    for (const d of list) {
+      if (d.kind !== 'audiooutput' || d.deviceId === 'communications' || seen.has(d.deviceId)) continue;
+      seen.add(d.deviceId);
+      const raw = (d.label || '').replace(/^(Default|Communications)\s*-\s*/, '');
+      const label = d.deviceId === 'default' ? (raw ? `System default — ${raw}` : 'System default') : (raw || 'Output device');
+      out.push({ id: d.deviceId, label });
+    }
+    return out.length ? out : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function noise() {
@@ -36,7 +84,7 @@ export function whoosh() {
     band.frequency.setValueAtTime(420, t0);
     band.frequency.exponentialRampToValueAtTime(1900, t0 + 0.16);
     envelope(gain.gain, t0, 0.16, 0.2);
-    src.connect(band).connect(gain).connect(a.destination);
+    src.connect(band).connect(gain).connect(master);
     src.start(t0);
     src.stop(t0 + 0.22);
   } catch {}
@@ -51,7 +99,7 @@ export function thwack() {
     band.Q.value = 0.8;
     band.frequency.value = 780;
     envelope(gain.gain, t0, 0.5, 0.11);
-    src.connect(band).connect(gain).connect(a.destination);
+    src.connect(band).connect(gain).connect(master);
     src.start(t0);
     src.stop(t0 + 0.14);
     const osc = a.createOscillator(), thump = a.createGain();
@@ -59,7 +107,7 @@ export function thwack() {
     osc.frequency.setValueAtTime(150, t0);
     osc.frequency.exponentialRampToValueAtTime(55, t0 + 0.12);
     envelope(thump.gain, t0, 0.4, 0.14);
-    osc.connect(thump).connect(a.destination);
+    osc.connect(thump).connect(master);
     osc.start(t0);
     osc.stop(t0 + 0.16);
   } catch {}
@@ -74,7 +122,7 @@ export function smash() {
     low.frequency.setValueAtTime(2600, t0);
     low.frequency.exponentialRampToValueAtTime(300, t0 + 0.5);
     envelope(gain.gain, t0, 0.65, 0.55);
-    src.connect(low).connect(gain).connect(a.destination);
+    src.connect(low).connect(gain).connect(master);
     src.start(t0);
     src.stop(t0 + 0.6);
     const osc = a.createOscillator(), boom = a.createGain();
@@ -82,7 +130,7 @@ export function smash() {
     osc.frequency.setValueAtTime(95, t0);
     osc.frequency.exponentialRampToValueAtTime(34, t0 + 0.4);
     envelope(boom.gain, t0, 0.55, 0.5);
-    osc.connect(boom).connect(a.destination);
+    osc.connect(boom).connect(master);
     osc.start(t0);
     osc.stop(t0 + 0.55);
   } catch {}
@@ -101,7 +149,7 @@ export function boing() {
     depth.gain.value = 28;
     wobble.connect(depth).connect(osc.frequency);
     envelope(gain.gain, t0, 0.25, 0.55);
-    osc.connect(gain).connect(a.destination);
+    osc.connect(gain).connect(master);
     osc.start(t0);
     wobble.start(t0);
     osc.stop(t0 + 0.6);
@@ -118,7 +166,7 @@ export function thump() {
     osc.frequency.setValueAtTime(110, t0);
     osc.frequency.exponentialRampToValueAtTime(60, t0 + 0.16);
     envelope(gain.gain, t0, 0.3, 0.2);
-    osc.connect(gain).connect(a.destination);
+    osc.connect(gain).connect(master);
     osc.start(t0);
     osc.stop(t0 + 0.22);
   } catch {}
@@ -137,7 +185,7 @@ export function snore() {
     gain.gain.setValueAtTime(0.0001, t0);
     gain.gain.exponentialRampToValueAtTime(0.075, t0 + 0.18);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.7);
-    osc.connect(low).connect(gain).connect(a.destination);
+    osc.connect(low).connect(gain).connect(master);
     osc.start(t0);
     osc.stop(t0 + 0.75);
   } catch {}
@@ -151,7 +199,7 @@ export function step() {
     low.type = 'lowpass';
     low.frequency.value = 420;
     envelope(gain.gain, t0, 0.045, 0.09);
-    src.connect(low).connect(gain).connect(a.destination);
+    src.connect(low).connect(gain).connect(master);
     src.start(t0);
     src.stop(t0 + 0.1);
   } catch {}
@@ -167,7 +215,7 @@ export function mumble() {
       osc.frequency.setValueAtTime(f, t0 + at);
       osc.frequency.linearRampToValueAtTime(f * 0.8, t0 + at + 0.1);
       envelope(gain.gain, t0 + at, 0.05, 0.12);
-      osc.connect(gain).connect(a.destination);
+      osc.connect(gain).connect(master);
       osc.start(t0 + at);
       osc.stop(t0 + at + 0.14);
     }
@@ -184,7 +232,7 @@ export function laugh() {
       osc.frequency.setValueAtTime(f, t0 + at);
       osc.frequency.exponentialRampToValueAtTime(f * 0.72, t0 + at + 0.11);
       envelope(gain.gain, t0 + at, 0.07, 0.13);
-      osc.connect(gain).connect(a.destination);
+      osc.connect(gain).connect(master);
       osc.start(t0 + at);
       osc.stop(t0 + at + 0.15);
     }
@@ -210,7 +258,7 @@ export function doorOpen() {
     gain.gain.setValueAtTime(0.0001, t0);
     gain.gain.exponentialRampToValueAtTime(0.07, t0 + 0.1);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.65);
-    osc.connect(band).connect(gain).connect(a.destination);
+    osc.connect(band).connect(gain).connect(master);
     osc.start(t0);
     wobble.start(t0);
     osc.stop(t0 + 0.7);
@@ -227,7 +275,7 @@ export function doorClose() {
     low.frequency.setValueAtTime(900, t0);
     low.frequency.exponentialRampToValueAtTime(180, t0 + 0.18);
     envelope(gain.gain, t0, 0.32, 0.22);
-    src.connect(low).connect(gain).connect(a.destination);
+    src.connect(low).connect(gain).connect(master);
     src.start(t0);
     src.stop(t0 + 0.24);
     const osc = a.createOscillator(), thudGain = a.createGain();
@@ -235,7 +283,7 @@ export function doorClose() {
     osc.frequency.setValueAtTime(130, t0);
     osc.frequency.exponentialRampToValueAtTime(60, t0 + 0.18);
     envelope(thudGain.gain, t0, 0.28, 0.22);
-    osc.connect(thudGain).connect(a.destination);
+    osc.connect(thudGain).connect(master);
     osc.start(t0);
     osc.stop(t0 + 0.24);
   } catch {}
@@ -253,7 +301,7 @@ export function kiai() {
     band.frequency.value = 900;
     band.Q.value = 2;
     envelope(gain.gain, t0, 0.09, 0.2);
-    osc.connect(band).connect(gain).connect(a.destination);
+    osc.connect(band).connect(gain).connect(master);
     osc.start(t0);
     osc.stop(t0 + 0.22);
   } catch {}
@@ -268,7 +316,7 @@ export function flagPlant() {
     osc.frequency.setValueAtTime(190, t0);
     osc.frequency.exponentialRampToValueAtTime(70, t0 + 0.2);
     envelope(gain.gain, t0, 0.4, 0.25);
-    osc.connect(gain).connect(a.destination);
+    osc.connect(gain).connect(master);
     osc.start(t0);
     osc.stop(t0 + 0.26);
     const src = noise(), band = a.createBiquadFilter(), cloth = a.createGain();
@@ -276,7 +324,7 @@ export function flagPlant() {
     band.frequency.value = 1200;
     band.Q.value = 0.7;
     envelope(cloth.gain, t0, 0.18, 0.18);
-    src.connect(band).connect(cloth).connect(a.destination);
+    src.connect(band).connect(cloth).connect(master);
     src.start(t0);
     src.stop(t0 + 0.2);
   } catch {}
@@ -296,7 +344,7 @@ export function heli() {
       gain.gain.exponentialRampToValueAtTime(i % 2 ? 0.12 : 0.28, t);
       gain.gain.exponentialRampToValueAtTime(0.04, t + 0.07);
     }
-    src.connect(low).connect(gain).connect(a.destination);
+    src.connect(low).connect(gain).connect(master);
     src.start(t0);
     src.stop(t0 + 1.5);
   } catch {}
@@ -311,7 +359,7 @@ export function chomp() {
     band.Q.value = 1.4;
     band.frequency.value = 420;
     envelope(gain.gain, t0, 0.22, 0.1);
-    src.connect(band).connect(gain).connect(a.destination);
+    src.connect(band).connect(gain).connect(master);
     src.start(t0);
     src.stop(t0 + 0.12);
   } catch {}
@@ -326,7 +374,7 @@ export function gulp() {
     osc.frequency.setValueAtTime(260, t0);
     osc.frequency.exponentialRampToValueAtTime(120, t0 + 0.18);
     envelope(gain.gain, t0, 0.18, 0.22);
-    osc.connect(gain).connect(a.destination);
+    osc.connect(gain).connect(master);
     osc.start(t0);
     osc.stop(t0 + 0.24);
   } catch {}
@@ -342,7 +390,7 @@ export function beep() {
       osc.type = 'sine';
       osc.frequency.value = 1046;
       envelope(gain.gain, at, 0.16, 0.1);
-      osc.connect(gain).connect(a.destination);
+      osc.connect(gain).connect(master);
       osc.start(at);
       osc.stop(at + 0.12);
     }
@@ -358,7 +406,7 @@ export function cloth() {
     band.frequency.setValueAtTime(1100, t0);
     band.frequency.exponentialRampToValueAtTime(350, t0 + 0.3);
     envelope(gain.gain, t0, 0.16, 0.3);
-    src.connect(band).connect(gain).connect(a.destination);
+    src.connect(band).connect(gain).connect(master);
     src.start(t0);
     src.stop(t0 + 0.32);
   } catch {}
